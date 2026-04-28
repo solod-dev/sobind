@@ -51,12 +51,12 @@ const SQLITE_VERSION = "3.45.0"
 const SQLITE_VERSION_NUMBER = 3045000
 
 //so:extern sqlite3_libversion
-func sqlite3_libversion() *c.CChar {
+func sqlite3_libversion() *c.ConstChar {
 	return nil
 }
 
 //so:extern sqlite3_sourceid
-func sqlite3_sourceid() *c.CChar {
+func sqlite3_sourceid() *c.ConstChar {
 	return nil
 }
 
@@ -72,7 +72,7 @@ func sqlite3_compileoption_used(zOptName string) int32 {
 }
 
 //so:extern sqlite3_compileoption_get
-func sqlite3_compileoption_get(N int32) *c.CChar {
+func sqlite3_compileoption_get(N int32) *c.ConstChar {
 	_ = N
 	return nil
 }
@@ -107,7 +107,7 @@ func sqlite3_create_function(db *sqlite3, zFunctionName string, nArg int32, eTex
 }
 
 //so:extern sqlite3_create_filename
-func sqlite3_create_filename(zDatabase string, zJournal string, zWal string, nParam int32, azParam **c.CChar) *c.CChar {
+func sqlite3_create_filename(zDatabase string, zJournal string, zWal string, nParam int32, azParam **c.ConstChar) *c.ConstChar {
 	_, _, _, _, _ = zDatabase, zJournal, zWal, nParam, azParam
 	return nil
 }

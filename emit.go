@@ -340,8 +340,8 @@ func (g *generator) mapParams(ft *cc.FunctionType) []paramDecl {
 			goType = "any"
 		}
 		// Only direct function params get the string conversion;
-		// nested pointers (const char**) stay as **c.CChar.
-		if goType == "*c.CChar" {
+		// nested pointers (const char**) stay as **c.ConstChar.
+		if goType == "*c.ConstChar" {
 			goType = "string"
 		}
 		params = append(params, paramDecl{name: name, typ: goType})

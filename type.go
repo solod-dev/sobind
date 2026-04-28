@@ -53,13 +53,13 @@ func (g *generator) mapPointerType(pt *cc.PointerType) string {
 	}
 	if elem.Kind() == cc.Char || elem.Kind() == cc.SChar {
 		if elem.Attributes().IsConst() {
-			return "*c.CChar"
+			return "*c.ConstChar"
 		}
 		return "*c.Char"
 	}
 	if elem.Kind() == cc.UChar {
 		if elem.Attributes().IsConst() {
-			return "*c.CChar"
+			return "*c.ConstChar"
 		}
 		return "*c.Char"
 	}
