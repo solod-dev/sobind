@@ -212,7 +212,7 @@ func (g *generator) walkTypedef(d *cc.Declarator) {
 			if ft, ok := elem.(*cc.FunctionType); ok {
 				sig := g.mapFuncPtrType(ft)
 				if _, exists := g.funcTypes[name]; !exists {
-					g.funcTypes[name] = fmt.Sprintf("type %s = %s", name, sig)
+					g.funcTypes[name] = fmt.Sprintf("type %s %s", name, sig)
 				}
 			}
 			return

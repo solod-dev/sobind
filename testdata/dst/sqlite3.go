@@ -5,7 +5,7 @@ package main
 import "solod.dev/so/c"
 var _ c.Char
 
-type sqlite3_callback = func(any, int32, **c.Char, **c.Char) int32
+type sqlite3_callback func(any, int32, **c.Char, **c.Char) int32
 
 //so:extern sqlite3
 type sqlite3 struct {}
