@@ -16,11 +16,12 @@ go install solod.dev/sobind@latest
 ## Usage
 
 ```
-sobind [-o output.go] [-pkg name] <header.h | dir> ...
+sobind [-o output.go] [-pkg name] [-I dir] <header.h | dir> ...
 ```
 
 - `-o` - output file (default: stdout)
 - `-pkg` - Go package name (default: `main`)
+- `-I` - include search directory (repeatable)
 
 When given a directory, all `.h` files in it are processed.
 
@@ -28,4 +29,5 @@ When given a directory, all `.h` files in it are processed.
 
 ```
 sobind -pkg main -o sqlite3.go sqlite3.h
+sobind -I . -o sdl3.go SDL3
 ```

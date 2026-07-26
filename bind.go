@@ -20,11 +20,13 @@ func bind(args []string) error {
 	flags := flag.NewFlagSet("bind", flag.ContinueOnError)
 	outFile := flags.String("o", "", "output file (default: stdout)")
 	pkgName := flags.String("pkg", "main", "Go package name")
+	var includes pathList
+	flags.Var(&includes, "I", "include search directory (repeatable)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] <path>")
+		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] <path>")
 	}
 
 	paths, err := collectPaths(flags.Args())
@@ -35,13 +37,25 @@ func bind(args []string) error {
 		return fmt.Errorf("no header files found")
 	}
 
-	out, err := Emit(paths, *pkgName)
+	out, err := Emit(paths, *pkgName, includes)
 	if err != nil {
 		return err
 	}
 
 	err = writeOutput(*outFile, out)
 	return err
+}
+
+// pathList collects a repeatable directory flag.
+type pathList []string
+
+func (l *pathList) String() string {
+	return strings.Join(*l, ",")
+}
+
+func (l *pathList) Set(v string) error {
+	*l = append(*l, v)
+	return nil
 }
 
 func collectPaths(args []string) ([]string, error) {

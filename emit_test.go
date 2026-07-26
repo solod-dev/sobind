@@ -26,7 +26,7 @@ func TestBind(t *testing.T) {
 			srcPath := filepath.Join(srcDir, e.Name())
 			dstPath := filepath.Join(dstDir, name+".go")
 
-			got, err := Emit([]string{srcPath}, "main")
+			got, err := Emit([]string{srcPath}, "main", nil)
 			if err != nil {
 				t.Fatal(err)
 			}

@@ -12,13 +12,18 @@ import (
 )
 
 // Emit parses C header files and returns a Go source file with so:extern declarations.
-func Emit(paths []string, pkgName string) ([]byte, error) {
+// includes are extra directories to search for included headers.
+func Emit(paths []string, pkgName string, includes []string) ([]byte, error) {
 	cfg, err := cc.NewConfig("", "")
 	if err != nil {
 		return nil, fmt.Errorf("cc config: %w", err)
 	}
 	cfg.Header = true
 	cfg.EvalAllMacros = true
+	// Headers of a library are often included by their install path
+	// (<SDL3/SDL_atomic.h>), so search the extra directories first.
+	cfg.IncludePaths = append(slices.Clone(includes), cfg.IncludePaths...)
+	cfg.SysIncludePaths = append(slices.Clone(includes), cfg.SysIncludePaths...)
 
 	sources := []cc.Source{
 		{Name: "<predefined>", Value: cfg.Predefined},
