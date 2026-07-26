@@ -7,46 +7,46 @@ var _ c.Char
 
 //so:extern CommonEvent
 type CommonEvent struct {
-	type_ uint32 `c:"type"`
-	timestamp uint64
+	type_ c.UInt `c:"type"`
+	timestamp c.ULongLong
 }
 
 //so:extern DisplayEvent
 type DisplayEvent struct {
-	type_ uint32 `c:"type"`
-	timestamp uint64
-	data1 int32
-	data2 int32
+	type_ c.UInt `c:"type"`
+	timestamp c.ULongLong
+	data1 c.Int
+	data2 c.Int
 }
 
 //so:extern Event
 type Event struct {
-	type_ uint32 `c:"type"`
+	type_ c.UInt `c:"type"`
 	common CommonEvent
 	display DisplayEvent
 }
 
 //so:extern Value
 type Value struct {
-	num int64
+	num c.LongLong
 	real float64
 	str *c.Char
 }
 
-//so:extern Slot
+//so:extern union Slot
 type Slot struct {
-	index int32
+	index c.Int
 	value Value
 }
 
-//so:extern Item
+//so:extern struct Item
 type Item struct {
-	range_ int32 `c:"range"`
+	range_ c.Int `c:"range"`
 	value Value
 }
 
 //so:extern poll_event
-func poll_event(event *Event) int32 {
+func poll_event(event *Event) c.Int {
 	_ = event
 	return 0
 }

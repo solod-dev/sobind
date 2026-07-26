@@ -235,7 +235,7 @@ func (g *generator) addStruct(name string, st *cc.StructType) {
 	}
 
 	// Register before resolving fields to break self-referential cycles.
-	sd := &structDecl{name: name, order: g.nextOrder()}
+	sd := &structDecl{name: name, cname: externName(name, "struct", st.Typedef()), order: g.nextOrder()}
 	g.structs[name] = sd
 	if st.HasFlexibleArrayMember() {
 		return // opaque
@@ -248,9 +248,18 @@ func (g *generator) addUnion(name string, ut *cc.UnionType) {
 		return
 	}
 
-	sd := &structDecl{name: name, order: g.nextOrder()}
+	sd := &structDecl{name: name, cname: externName(name, "union", ut.Typedef()), order: g.nextOrder()}
 	g.structs[name] = sd
 	sd.fields = g.mapFields(ut)
+}
+
+// externName returns the C name of a struct or union. A typedef name stands on
+// its own, a tag needs the "struct" or "union" keyword at every use in C.
+func externName(name, keyword string, td *cc.Declarator) string {
+	if td != nil && td.Name() == name {
+		return name
+	}
+	return keyword + " " + name
 }
 
 // aggregate is the part of the C struct and union APIs used for field mapping.
@@ -460,7 +469,7 @@ func (g *generator) emit(pkgName string) []byte {
 
 	for _, s := range structs {
 		buf.WriteString("\n//so:extern ")
-		buf.WriteString(s.name)
+		buf.WriteString(s.cname)
 		buf.WriteString("\ntype ")
 		buf.WriteString(s.name)
 		buf.WriteString(" struct {")

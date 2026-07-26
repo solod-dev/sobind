@@ -7,32 +7,74 @@ import (
 	cc "modernc.org/cc/v4"
 )
 
+// fixedWidth maps the fixed-width C typedefs to the So types of the same width.
+var fixedWidth = map[string]string{
+	"int8_t":    "int8",
+	"int16_t":   "int16",
+	"int32_t":   "int32",
+	"int64_t":   "int64",
+	"uint8_t":   "uint8",
+	"uint16_t":  "uint16",
+	"uint32_t":  "uint32",
+	"uint64_t":  "uint64",
+	"uintptr_t": "uintptr",
+}
+
+// namedTypes maps the C typedefs whose width follows the target to the so/c
+// types of the same name. Everything else goes through the C type it is
+// declared with, so the width stays whatever the C compiler picks.
+var namedTypes = map[string]string{
+	"size_t":    "c.Size",
+	"ssize_t":   "c.SSize",
+	"ptrdiff_t": "c.Ptrdiff",
+	"intptr_t":  "c.Intptr",
+}
+
 func (g *generator) mapType(t cc.Type) string {
+	name := typedefName(t)
+	if goType, ok := fixedWidth[name]; ok {
+		return goType
+	}
+	if goType, ok := namedTypes[name]; ok {
+		return goType
+	}
+
 	switch t.Kind() {
 	case cc.Void:
 		return ""
 	case cc.Bool:
 		return "bool"
-	case cc.Char, cc.SChar, cc.UChar:
+	case cc.Char:
 		return "c.Char"
+	case cc.SChar:
+		return "c.SChar"
+	case cc.UChar:
+		return "c.UChar"
 	case cc.Short:
-		return "int16"
+		return "c.Short"
 	case cc.UShort:
-		return "uint16"
+		return "c.UShort"
 	case cc.Int:
-		return "int32"
+		return "c.Int"
 	case cc.UInt:
-		return "uint32"
-	case cc.Long, cc.LongLong:
-		return "int64"
-	case cc.ULong, cc.ULongLong:
-		return "uint64"
+		return "c.UInt"
+	case cc.Long:
+		return "c.Long"
+	case cc.ULong:
+		return "c.ULong"
+	case cc.LongLong:
+		return "c.LongLong"
+	case cc.ULongLong:
+		return "c.ULongLong"
 	case cc.Float:
 		return "float32"
-	case cc.Double, cc.LongDouble:
+	case cc.Double:
 		return "float64"
+	case cc.LongDouble:
+		return "c.LongDouble"
 	case cc.Enum:
-		return "int32"
+		// A C enum has the size of an int.
+		return "c.Int"
 	case cc.Ptr:
 		return g.mapPointerType(t.(*cc.PointerType))
 	case cc.Struct:
@@ -53,13 +95,10 @@ func (g *generator) mapPointerType(pt *cc.PointerType) string {
 	if elem.Kind() == cc.Void {
 		return "any"
 	}
-	if elem.Kind() == cc.Char || elem.Kind() == cc.SChar {
-		if elem.Attributes().IsConst() {
-			return "*c.ConstChar"
-		}
-		return "*c.Char"
-	}
-	if elem.Kind() == cc.UChar {
+	// A pointer to any char type is a C string, unless it is declared with a
+	// fixed-width typedef (uint8_t*), which marks it as a byte buffer.
+	isChar := elem.Kind() == cc.Char || elem.Kind() == cc.SChar || elem.Kind() == cc.UChar
+	if isChar && fixedWidth[typedefName(elem)] == "" {
 		if elem.Attributes().IsConst() {
 			return "*c.ConstChar"
 		}
@@ -156,6 +195,13 @@ func (g *generator) mapArrayType(at *cc.ArrayType) string {
 	return fmt.Sprintf("[%d]%s", size, elem)
 }
 
+var numeric = map[string]bool{
+	"byte": true, "uintptr": true,
+	"int8": true, "int16": true, "int32": true, "int64": true,
+	"uint8": true, "uint16": true, "uint32": true, "uint64": true,
+	"float32": true, "float64": true,
+}
+
 func zeroValue(typ string) string {
 	switch typ {
 	case "bool":
@@ -164,8 +210,12 @@ func zeroValue(typ string) string {
 		return `""`
 	case "any":
 		return "nil"
-	case "c.Char", "byte", "int16", "uint16", "int32", "uint32", "int64", "uint64", "float32", "float64":
+	}
+	if numeric[typ] {
 		return "0"
+	}
+	if strings.HasPrefix(typ, "c.") {
+		return "0" // every so/c type sobind emits is a number
 	}
 	if strings.HasPrefix(typ, "*") {
 		return "nil"
@@ -178,4 +228,14 @@ func zeroValue(typ string) string {
 	}
 	// Struct type - return zero struct.
 	return typ + "{}"
+}
+
+// typedefName returns the name a type is declared with, or "" if the type is
+// not a typedef. For example, "int32_t x" is a cc.Int named "int32_t".
+func typedefName(t cc.Type) string {
+	td := t.Typedef()
+	if td == nil {
+		return ""
+	}
+	return td.Name()
 }

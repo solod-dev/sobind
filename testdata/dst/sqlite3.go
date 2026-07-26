@@ -5,7 +5,7 @@ package main
 import "solod.dev/so/c"
 var _ c.Char
 
-type sqlite3_callback func(any, int32, **c.Char, **c.Char) int32
+type sqlite3_callback func(any, c.Int, **c.Char, **c.Char) c.Int
 
 //so:extern sqlite3
 type sqlite3 struct {}
@@ -15,27 +15,27 @@ type sqlite3_file struct {
 	pMethods *sqlite3_io_methods
 }
 
-//so:extern sqlite3_io_methods
+//so:extern struct sqlite3_io_methods
 type sqlite3_io_methods struct {
-	iVersion int32
-	xClose func(*sqlite3_file) int32
-	xRead func(*sqlite3_file, any, int32, int64) int32
-	xWrite func(*sqlite3_file, any, int32, int64) int32
-	xTruncate func(*sqlite3_file, int64) int32
-	xSync func(*sqlite3_file, int32) int32
-	xFileSize func(*sqlite3_file, *int64) int32
-	xLock func(*sqlite3_file, int32) int32
-	xUnlock func(*sqlite3_file, int32) int32
-	xCheckReservedLock func(*sqlite3_file, *int32) int32
-	xFileControl func(*sqlite3_file, int32, any) int32
-	xSectorSize func(*sqlite3_file) int32
-	xDeviceCharacteristics func(*sqlite3_file) int32
-	xShmMap func(*sqlite3_file, int32, int32, int32, *any) int32
-	xShmLock func(*sqlite3_file, int32, int32, int32) int32
+	iVersion c.Int
+	xClose func(*sqlite3_file) c.Int
+	xRead func(*sqlite3_file, any, c.Int, c.LongLong) c.Int
+	xWrite func(*sqlite3_file, any, c.Int, c.LongLong) c.Int
+	xTruncate func(*sqlite3_file, c.LongLong) c.Int
+	xSync func(*sqlite3_file, c.Int) c.Int
+	xFileSize func(*sqlite3_file, *c.LongLong) c.Int
+	xLock func(*sqlite3_file, c.Int) c.Int
+	xUnlock func(*sqlite3_file, c.Int) c.Int
+	xCheckReservedLock func(*sqlite3_file, *c.Int) c.Int
+	xFileControl func(*sqlite3_file, c.Int, any) c.Int
+	xSectorSize func(*sqlite3_file) c.Int
+	xDeviceCharacteristics func(*sqlite3_file) c.Int
+	xShmMap func(*sqlite3_file, c.Int, c.Int, c.Int, *any) c.Int
+	xShmLock func(*sqlite3_file, c.Int, c.Int, c.Int) c.Int
 	xShmBarrier func(*sqlite3_file)
-	xShmUnmap func(*sqlite3_file, int32) int32
-	xFetch func(*sqlite3_file, int64, int32, *any) int32
-	xUnfetch func(*sqlite3_file, int64, any) int32
+	xShmUnmap func(*sqlite3_file, c.Int) c.Int
+	xFetch func(*sqlite3_file, c.LongLong, c.Int, *any) c.Int
+	xUnfetch func(*sqlite3_file, c.LongLong, any) c.Int
 }
 
 //so:extern sqlite3_value
@@ -61,53 +61,53 @@ func sqlite3_sourceid() *c.ConstChar {
 }
 
 //so:extern sqlite3_libversion_number
-func sqlite3_libversion_number() int32 {
+func sqlite3_libversion_number() c.Int {
 	return 0
 }
 
 //so:extern sqlite3_compileoption_used
-func sqlite3_compileoption_used(zOptName string) int32 {
+func sqlite3_compileoption_used(zOptName string) c.Int {
 	_ = zOptName
 	return 0
 }
 
 //so:extern sqlite3_compileoption_get
-func sqlite3_compileoption_get(N int32) *c.ConstChar {
+func sqlite3_compileoption_get(N c.Int) *c.ConstChar {
 	_ = N
 	return nil
 }
 
 //so:extern sqlite3_threadsafe
-func sqlite3_threadsafe() int32 {
+func sqlite3_threadsafe() c.Int {
 	return 0
 }
 
 //so:extern sqlite3_close
-func sqlite3_close(arg0 *sqlite3) int32 {
+func sqlite3_close(arg0 *sqlite3) c.Int {
 	_ = arg0
 	return 0
 }
 
 //so:extern sqlite3_close_v2
-func sqlite3_close_v2(arg0 *sqlite3) int32 {
+func sqlite3_close_v2(arg0 *sqlite3) c.Int {
 	_ = arg0
 	return 0
 }
 
 //so:extern sqlite3_exec
-func sqlite3_exec(arg0 *sqlite3, sql string, callback func(any, int32, **c.Char, **c.Char) int32, arg3 any, errmsg **c.Char) int32 {
+func sqlite3_exec(arg0 *sqlite3, sql string, callback func(any, c.Int, **c.Char, **c.Char) c.Int, arg3 any, errmsg **c.Char) c.Int {
 	_, _, _, _, _ = arg0, sql, callback, arg3, errmsg
 	return 0
 }
 
 //so:extern sqlite3_create_function
-func sqlite3_create_function(db *sqlite3, zFunctionName string, nArg int32, eTextRep int32, pApp any, xFunc func(*sqlite3_context, int32, **sqlite3_value), xStep func(*sqlite3_context, int32, **sqlite3_value), xFinal func(*sqlite3_context)) int32 {
+func sqlite3_create_function(db *sqlite3, zFunctionName string, nArg c.Int, eTextRep c.Int, pApp any, xFunc func(*sqlite3_context, c.Int, **sqlite3_value), xStep func(*sqlite3_context, c.Int, **sqlite3_value), xFinal func(*sqlite3_context)) c.Int {
 	_, _, _, _, _, _, _, _ = db, zFunctionName, nArg, eTextRep, pApp, xFunc, xStep, xFinal
 	return 0
 }
 
 //so:extern sqlite3_create_filename
-func sqlite3_create_filename(zDatabase string, zJournal string, zWal string, nParam int32, azParam **c.ConstChar) *c.ConstChar {
+func sqlite3_create_filename(zDatabase string, zJournal string, zWal string, nParam c.Int, azParam **c.ConstChar) *c.ConstChar {
 	_, _, _, _, _ = zDatabase, zJournal, zWal, nParam, azParam
 	return nil
 }
@@ -118,7 +118,7 @@ func sqlite3_free_filename(arg0 string) {
 }
 
 //so:extern sqlite3_win32_set_directory
-func sqlite3_win32_set_directory(type_ uint64, zValue any) int32 {
+func sqlite3_win32_set_directory(type_ c.ULong, zValue any) c.Int {
 	_, _ = type_, zValue
 	return 0
 }

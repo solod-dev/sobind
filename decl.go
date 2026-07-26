@@ -4,6 +4,7 @@ package main
 // only names the C layout, it does not define it.
 type structDecl struct {
 	name   string
+	cname  string      // C name, "struct Foo" for a type with no typedef
 	fields []fieldDecl // nil means opaque
 	order  int
 }
