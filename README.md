@@ -3,7 +3,7 @@
 Generates So extern declarations from C header files.
 
 `sobind` parses `.h` files and emits a Go source file with `//so:extern` stubs
-for structs, constants, function pointer typedefs, and function declarations.
+for structs, unions, constants, function pointer typedefs, and function declarations.
 
 Note that `sobind` is far from finished and can't handle many situations correctly. It's still useful, but you should treat the generated file as a starting point, not as the final result.
 

@@ -37,6 +37,8 @@ func (g *generator) mapType(t cc.Type) string {
 		return g.mapPointerType(t.(*cc.PointerType))
 	case cc.Struct:
 		return g.mapStructType(t.(*cc.StructType))
+	case cc.Union:
+		return g.mapUnionType(t.(*cc.UnionType))
 	case cc.Function:
 		return g.mapFuncPtrType(t.(*cc.FunctionType))
 	case cc.Array:
@@ -91,6 +93,26 @@ func (g *generator) mapStructType(st *cc.StructType) string {
 	if tag.SrcStr() != "" {
 		name := tag.SrcStr()
 		g.addStruct(name, st)
+		return name
+	}
+	return ""
+}
+
+func (g *generator) mapUnionType(ut *cc.UnionType) string {
+	// Use typedef name if available.
+	if td := ut.Typedef(); td != nil {
+		name := td.Name()
+		if name != "" && !strings.HasPrefix(name, "_") {
+			// Ensure union is registered.
+			g.addUnion(name, ut)
+			return name
+		}
+	}
+	// Use tag name.
+	tag := ut.Tag()
+	if tag.SrcStr() != "" {
+		name := tag.SrcStr()
+		g.addUnion(name, ut)
 		return name
 	}
 	return ""

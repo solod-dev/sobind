@@ -1,5 +1,7 @@
 package main
 
+// structDecl is a C struct or union. Both map to a Go struct: an extern type
+// only names the C layout, it does not define it.
 type structDecl struct {
 	name   string
 	fields []fieldDecl // nil means opaque
@@ -7,8 +9,9 @@ type structDecl struct {
 }
 
 type fieldDecl struct {
-	name string
-	typ  string
+	name  string
+	cname string // C name, differs from name when the C name is a Go keyword
+	typ   string
 }
 
 type constDecl struct {

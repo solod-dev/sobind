@@ -176,6 +176,11 @@ func (g *generator) walkDeclSpecTypes(ds *cc.DeclarationSpecifiers) {
 		if tag.SrcStr() != "" {
 			g.addStruct(tag.SrcStr(), ut)
 		}
+	case *cc.UnionType:
+		tag := ut.Tag()
+		if tag.SrcStr() != "" {
+			g.addUnion(tag.SrcStr(), ut)
+		}
 	case *cc.EnumType:
 		tag := ut.Tag()
 		name := tag.SrcStr()
@@ -200,6 +205,8 @@ func (g *generator) walkTypedef(d *cc.Declarator) {
 	switch ut := t.(type) {
 	case *cc.StructType:
 		g.addStruct(name, ut)
+	case *cc.UnionType:
+		g.addUnion(name, ut)
 	case *cc.EnumType:
 		if !g.enums[name] {
 			g.enums[name] = true
@@ -230,37 +237,55 @@ func (g *generator) addStruct(name string, st *cc.StructType) {
 	// Register before resolving fields to break self-referential cycles.
 	sd := &structDecl{name: name, order: g.nextOrder()}
 	g.structs[name] = sd
-	sd.fields = g.mapStructFields(st)
+	if st.HasFlexibleArrayMember() {
+		return // opaque
+	}
+	sd.fields = g.mapFields(st)
 }
 
-func (g *generator) mapStructFields(st *cc.StructType) []fieldDecl {
-	if st.IsIncomplete() {
-		return nil
+func (g *generator) addUnion(name string, ut *cc.UnionType) {
+	if _, exists := g.structs[name]; exists {
+		return
 	}
-	if st.HasFlexibleArrayMember() {
+
+	sd := &structDecl{name: name, order: g.nextOrder()}
+	g.structs[name] = sd
+	sd.fields = g.mapFields(ut)
+}
+
+// aggregate is the part of the C struct and union APIs used for field mapping.
+type aggregate interface {
+	IsIncomplete() bool
+	NumFields() int
+	FieldByIndex(i int) *cc.Field
+}
+
+func (g *generator) mapFields(at aggregate) []fieldDecl {
+	if at.IsIncomplete() {
 		return nil
 	}
 
-	n := st.NumFields()
+	n := at.NumFields()
 	var fields []fieldDecl
-	for i := 0; i < n; i++ {
-		f := st.FieldByIndex(i)
+	for i := range n {
+		f := at.FieldByIndex(i)
 		if f.IsBitfield() {
 			return nil // opaque
 		}
-		fname := f.Name()
-		if fname == "" {
+		cname := f.Name()
+		if cname == "" {
 			return nil // anonymous field - opaque
 		}
-		ft := f.Type()
-		if ft.Kind() == cc.Union {
-			return nil // contains union - opaque
-		}
-		goType := g.mapType(ft)
+		goType := g.mapType(f.Type())
 		if goType == "" {
 			return nil // unmappable - opaque
 		}
-		fields = append(fields, fieldDecl{name: fname, typ: goType})
+		name := cname
+		if goReserved[name] {
+			// A `c:"..."` tag keeps the C name when the Go one has to change.
+			name += "_"
+		}
+		fields = append(fields, fieldDecl{name: name, cname: cname, typ: goType})
 	}
 	return fields
 }
@@ -446,6 +471,9 @@ func (g *generator) emit(pkgName string) []byte {
 				buf.WriteString(f.name)
 				buf.WriteString(" ")
 				buf.WriteString(f.typ)
+				if f.cname != f.name {
+					fmt.Fprintf(&buf, " `c:%q`", f.cname)
+				}
 				buf.WriteString("\n")
 			}
 		}
