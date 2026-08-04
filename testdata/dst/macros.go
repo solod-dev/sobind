@@ -5,14 +5,65 @@ package main
 import "solod.dev/so/c"
 var _ c.Char
 
+//so:extern METER
+const METER = 1
+
+//so:extern SECOND
+const SECOND = 2
+
+// AREA: float expression, define the constant manually
+
+//so:extern BOUND
+const BOUND = 4095
+
+//so:extern BYTE_MAX
+const BYTE_MAX = 0x1p8
+
+//so:extern CAPACITY
+const CAPACITY = 4096
+
+// DOUBLED: float expression, define the constant manually
+
 //so:extern ENABLED
 const ENABLED = 1
+
+//so:extern EPSILON
+const EPSILON = 1e-9
+
+//so:extern FACTOR
+const FACTOR = 0.5
+
+//so:extern HALF
+const HALF = .5
 
 //so:extern LIMIT
 const LIMIT = 4095
 
+//so:extern MARGIN
+const MARGIN = 0.25
+
 //so:extern MAX_SIZE
 const MAX_SIZE = 4096
 
+//so:extern OFFSET
+const OFFSET = -1.5
+
+//so:extern PRECISE
+const PRECISE = 1.0
+
+//so:extern RATIO
+const RATIO = 0.5
+
+//so:extern SCALE
+const SCALE = 0.5
+
+// THIRD: float expression, define the constant manually
+
+//so:extern TITLE
+const TITLE = "1.2.3"
+
 //so:extern VERSION
 const VERSION = "1.2.3"
+
+//so:extern WHOLE
+const WHOLE = 5.

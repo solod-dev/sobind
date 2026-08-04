@@ -44,9 +44,12 @@ type fieldDecl struct {
 	typ   string
 }
 
+// constDecl is an enum member or an object-like macro. An empty value means
+// the constant could not be expressed in So, and note says why.
 type constDecl struct {
 	name  string
 	value string
+	note  string
 	order int
 }
 

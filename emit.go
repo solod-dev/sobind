@@ -442,11 +442,11 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 			continue
 		}
 
-		valStr := macroValue(m)
-		if valStr == "" {
+		value, note := macroValue(m, macros)
+		if value == "" && note == "" {
 			continue
 		}
-		g.consts[name] = constDecl{name: name, value: valStr, order: g.nextOrder()}
+		g.consts[name] = constDecl{name: name, value: value, note: note, order: g.nextOrder()}
 	}
 }
 
@@ -509,6 +509,14 @@ func (g *generator) emitStructs(buf *strings.Builder) {
 
 func (g *generator) emitConsts(buf *strings.Builder) {
 	for _, c := range sorted(g.consts) {
+		if c.value == "" {
+			buf.WriteString("\n// ")
+			buf.WriteString(c.name)
+			buf.WriteString(": ")
+			buf.WriteString(c.note)
+			buf.WriteString("\n")
+			continue
+		}
 		buf.WriteString("\n//so:extern ")
 		buf.WriteString(c.name)
 		buf.WriteString("\nconst ")
@@ -594,37 +602,4 @@ func (g *generator) emitFuncBody(buf *strings.Builder, f *funcDecl) {
 		buf.WriteString("\n")
 	}
 	buf.WriteString("}\n")
-}
-
-// macroValue returns the formatted constant value for a macro, or "" if the
-// macro doesn't represent a usable constant. This filters out macros that
-// expand to keywords (like `#define SQLITE_EXTERN extern`).
-func macroValue(m *cc.Macro) string {
-	hasLiteral := false
-	hasString := false
-	for _, tok := range m.ReplacementList() {
-		switch rune(tok.Ch) {
-		case rune(cc.INTCONST), rune(cc.FLOATCONST), rune(cc.CHARCONST),
-			rune(cc.LONGCHARCONST), rune(cc.PPNUMBER):
-			hasLiteral = true
-		case rune(cc.STRINGLITERAL), rune(cc.LONGSTRINGLITERAL):
-			hasString = true
-		}
-	}
-
-	if hasString {
-		// For string macros, use the source text directly since the cc
-		// library may return UnknownValue for string constants.
-		tokens := m.ReplacementList()
-		if len(tokens) == 1 {
-			return tokens[0].SrcStr()
-		}
-		return ""
-	}
-
-	if !hasLiteral {
-		return ""
-	}
-
-	return formatValue(m.Value())
 }
