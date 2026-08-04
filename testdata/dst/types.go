@@ -62,13 +62,7 @@ const MODE_OFF = 0
 const MODE_ON = 1
 
 //so:extern process
-func process(buf *Buf, mode c.Int, n c.Size, msg string) c.Int {
-	_, _, _, _ = buf, mode, n, msg
-	return 0
-}
+func process(buf *Buf, mode c.Int, n c.Size, msg string) c.Int
 
 //so:extern read_buf
-func read_buf(buf *Buf, dst any, n c.Size) c.SSize {
-	_, _, _ = buf, dst, n
-	return 0
-}
+func read_buf(buf *Buf, dst any, n c.Size) c.SSize

@@ -20,13 +20,14 @@ func bind(args []string) error {
 	flags := flag.NewFlagSet("bind", flag.ContinueOnError)
 	outFile := flags.String("o", "", "output file (default: stdout)")
 	pkgName := flags.String("pkg", "main", "Go package name")
+	body := flags.Bool("body", false, "emit function bodies (default: declaration only)")
 	var includes pathList
 	flags.Var(&includes, "I", "include search directory (repeatable)")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] <path>")
+		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-body] <path>")
 	}
 
 	paths, err := collectPaths(flags.Args())
@@ -37,7 +38,8 @@ func bind(args []string) error {
 		return fmt.Errorf("no header files found")
 	}
 
-	out, err := Emit(paths, *pkgName, includes)
+	opts := Options{Package: *pkgName, Includes: includes, Body: *body}
+	out, err := Emit(paths, opts)
 	if err != nil {
 		return err
 	}

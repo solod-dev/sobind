@@ -46,13 +46,7 @@ type Item struct {
 }
 
 //so:extern poll_event
-func poll_event(event *Event) c.Int {
-	_ = event
-	return 0
-}
+func poll_event(event *Event) c.Int
 
 //so:extern value_real
-func value_real(val *Value) float64 {
-	_ = val
-	return 0
-}
+func value_real(val *Value) float64

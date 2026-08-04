@@ -16,12 +16,13 @@ go install solod.dev/sobind@latest
 ## Usage
 
 ```
-sobind [-o output.go] [-pkg name] [-I dir] <header.h | dir> ...
+sobind [-o output.go] [-pkg name] [-I dir] [-body] <header.h | dir> ...
 ```
 
 - `-o` - output file (default: stdout)
 - `-pkg` - Go package name (default: `main`)
 - `-I` - include search directory (repeatable)
+- `-body` - emit function bodies (default: declaration only)
 
 When given a directory, all `.h` files in it are processed.
 
