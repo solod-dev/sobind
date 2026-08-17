@@ -11,6 +11,11 @@ type ordered interface {
 	ordinal() int
 }
 
+// symbol is a declaration with a C name and a So name.
+type symbol interface {
+	names() (cname, name string)
+}
+
 // sorted returns the declarations in header order.
 func sorted[T ordered](decls map[string]T) []T {
 	s := slices.Collect(maps.Values(decls))
@@ -18,14 +23,29 @@ func sorted[T ordered](decls map[string]T) []T {
 	return s
 }
 
+// symbols returns the declarations as symbols, in header order.
+func symbols[T interface {
+	ordered
+	symbol
+}](decls map[string]T) []symbol {
+	s := sorted(decls)
+	out := make([]symbol, len(s))
+	for i, d := range s {
+		out[i] = d
+	}
+	return out
+}
+
 // funcTypeDecl is a C function pointer typedef.
 type funcTypeDecl struct {
 	name  string
+	cname string
 	sig   string // Go function type, "func(c.Int) c.Int"
 	order int
 }
 
-func (d funcTypeDecl) ordinal() int { return d.order }
+func (d funcTypeDecl) ordinal() int            { return d.order }
+func (d funcTypeDecl) names() (string, string) { return d.cname, d.name }
 
 // structDecl is a C struct or union. Both map to a Go struct: an extern type
 // only names the C layout, it does not define it.
@@ -36,7 +56,8 @@ type structDecl struct {
 	order  int
 }
 
-func (d structDecl) ordinal() int { return d.order }
+func (d structDecl) ordinal() int            { return d.order }
+func (d structDecl) names() (string, string) { return d.cname, d.name }
 
 type fieldDecl struct {
 	name  string
@@ -48,22 +69,26 @@ type fieldDecl struct {
 // the constant could not be expressed in So, and note says why.
 type constDecl struct {
 	name  string
+	cname string
 	value string
 	note  string
 	order int
 }
 
-func (d constDecl) ordinal() int { return d.order }
+func (d constDecl) ordinal() int            { return d.order }
+func (d constDecl) names() (string, string) { return d.cname, d.name }
 
 type funcDecl struct {
 	name     string
+	cname    string
 	params   []paramDecl
 	result   string
 	variadic bool
 	order    int
 }
 
-func (d funcDecl) ordinal() int { return d.order }
+func (d funcDecl) ordinal() int            { return d.order }
+func (d funcDecl) names() (string, string) { return d.cname, d.name }
 
 type paramDecl struct {
 	name string
@@ -72,8 +97,10 @@ type paramDecl struct {
 
 type varDecl struct {
 	name  string
+	cname string
 	typ   string
 	order int
 }
 
-func (d varDecl) ordinal() int { return d.order }
+func (d varDecl) ordinal() int            { return d.order }
+func (d varDecl) names() (string, string) { return d.cname, d.name }

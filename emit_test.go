@@ -36,11 +36,32 @@ func TestBind(t *testing.T) {
 	}
 }
 
-// TestBindBody checks the function bodies, which are off by default.
 func TestBindBody(t *testing.T) {
 	srcPath := filepath.Join("testdata/src", "funcs.h")
 	dstPath := filepath.Join("testdata/dst", "funcs_body.go")
 	compare(t, srcPath, dstPath, Options{Package: "main", Body: true})
+}
+
+func TestBindStyle(t *testing.T) {
+	// One prefix covers uv_ and UV_, because the match ignores case.
+	srcPath := filepath.Join("testdata/src", "style.h")
+	dstPath := filepath.Join("testdata/dst", "style_go.go")
+	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}}
+	compare(t, srcPath, dstPath, opts)
+}
+
+func TestBindCollision(t *testing.T) {
+	// Check that two C names mapping to one So name fail.
+	srcPath := filepath.Join("testdata/src", "collide.h")
+	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}}
+	_, err := Emit([]string{srcPath}, opts)
+	if err == nil {
+		t.Fatal("expected a name collision error")
+	}
+	want := "UV_TIMEOUT and uv_timeout both map to Timeout"
+	if err.Error() != want {
+		t.Errorf("got %q, want %q", err, want)
+	}
 }
 
 // compare emits the header and diffs it against the expected output.

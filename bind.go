@@ -20,14 +20,27 @@ func bind(args []string) error {
 	flags := flag.NewFlagSet("bind", flag.ContinueOnError)
 	outFile := flags.String("o", "", "output file (default: stdout)")
 	pkgName := flags.String("pkg", "main", "Go package name")
-	body := flags.Bool("body", false, "emit function bodies (default: declaration only)")
-	var includes pathList
+	var includes stringList
 	flags.Var(&includes, "I", "include search directory (repeatable)")
+	body := flags.Bool("body", false, "emit function bodies (default: declaration only)")
+	styleStr := flags.String("style", "c", "symbol naming: c (keep C names) or go (exported CamelCase)")
+	var strip stringList
+	flags.Var(&strip, "strip", "C name prefix to remove with -style=go (repeatable)")
+
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-body] <path>")
+		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-body] " +
+			"[-style c|go] [-strip prefix] <path>")
+	}
+
+	style, err := parseStyle(*styleStr)
+	if err != nil {
+		return err
+	}
+	if style != styleGo && len(strip) > 0 {
+		return fmt.Errorf("-strip needs -style=go")
 	}
 
 	paths, err := collectPaths(flags.Args())
@@ -38,7 +51,13 @@ func bind(args []string) error {
 		return fmt.Errorf("no header files found")
 	}
 
-	opts := Options{Package: *pkgName, Includes: includes, Body: *body}
+	opts := Options{
+		Package:  *pkgName,
+		Includes: includes,
+		Body:     *body,
+		Style:    style,
+		Strip:    strip,
+	}
 	out, err := Emit(paths, opts)
 	if err != nil {
 		return err
@@ -48,14 +67,14 @@ func bind(args []string) error {
 	return err
 }
 
-// pathList collects a repeatable directory flag.
-type pathList []string
+// stringList collects a repeatable flag.
+type stringList []string
 
-func (l *pathList) String() string {
+func (l *stringList) String() string {
 	return strings.Join(*l, ",")
 }
 
-func (l *pathList) Set(v string) error {
+func (l *stringList) Set(v string) error {
 	*l = append(*l, v)
 	return nil
 }

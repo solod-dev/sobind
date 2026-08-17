@@ -124,7 +124,7 @@ func (g *generator) mapStructType(st *cc.StructType) string {
 		if name != "" && !strings.HasPrefix(name, "_") {
 			// Ensure struct is registered.
 			g.addStruct(name, st)
-			return name
+			return g.rename.name(name)
 		}
 	}
 	// Use tag name.
@@ -132,7 +132,7 @@ func (g *generator) mapStructType(st *cc.StructType) string {
 	if tag.SrcStr() != "" {
 		name := tag.SrcStr()
 		g.addStruct(name, st)
-		return name
+		return g.rename.name(name)
 	}
 	return ""
 }
@@ -144,7 +144,7 @@ func (g *generator) mapUnionType(ut *cc.UnionType) string {
 		if name != "" && !strings.HasPrefix(name, "_") {
 			// Ensure union is registered.
 			g.addUnion(name, ut)
-			return name
+			return g.rename.name(name)
 		}
 	}
 	// Use tag name.
@@ -152,7 +152,7 @@ func (g *generator) mapUnionType(ut *cc.UnionType) string {
 	if tag.SrcStr() != "" {
 		name := tag.SrcStr()
 		g.addUnion(name, ut)
-		return name
+		return g.rename.name(name)
 	}
 	return ""
 }

@@ -12,9 +12,11 @@ import (
 
 // Options control the emitted Go source.
 type Options struct {
-	Package  string   // Go package name
-	Includes []string // extra directories to search for included headers
-	Body     bool     // emit function bodies instead of declarations only
+	Package  string    // Go package name
+	Includes []string  // extra directories to search for included headers
+	Body     bool      // emit function bodies instead of declarations only
+	Style    nameStyle // symbol naming style
+	Strip    []string  // C name prefixes to remove, Go naming style only
 }
 
 // Emit parses C header files and returns a Go source file with so:extern declarations.
@@ -54,6 +56,7 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 
 	g := &generator{
 		opts:      opts,
+		rename:    newRenamer(opts.Style, opts.Strip),
 		allowed:   allowed,
 		structs:   make(map[string]*structDecl),
 		enums:     make(map[string]bool),
@@ -64,6 +67,9 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 	}
 
 	g.walkAST(ast)
+	if err := g.checkNames(); err != nil {
+		return nil, err
+	}
 	return g.emit(), nil
 }
 
@@ -79,6 +85,7 @@ var goReserved = map[string]bool{
 
 type generator struct {
 	opts      Options
+	rename    *renamer
 	allowed   map[string]bool
 	structs   map[string]*structDecl
 	enums     map[string]bool
@@ -160,7 +167,12 @@ func (g *generator) walkDeclaration(decl *cc.Declaration) {
 			goType := g.mapType(t)
 			if goType != "" {
 				if _, exists := g.vars[name]; !exists {
-					g.vars[name] = &varDecl{name: name, typ: goType, order: g.nextOrder()}
+					g.vars[name] = &varDecl{
+						name:  g.rename.name(name),
+						cname: name,
+						typ:   goType,
+						order: g.nextOrder(),
+					}
 				}
 			}
 		}
@@ -233,7 +245,12 @@ func (g *generator) walkTypedef(d *cc.Declarator) {
 				// even when the typedef is already known.
 				sig := g.mapFuncPtrType(ft)
 				if _, exists := g.funcTypes[name]; !exists {
-					g.funcTypes[name] = funcTypeDecl{name: name, sig: sig, order: g.nextOrder()}
+					g.funcTypes[name] = funcTypeDecl{
+						name:  g.rename.name(name),
+						cname: name,
+						sig:   sig,
+						order: g.nextOrder(),
+					}
 				}
 			}
 			return
@@ -249,7 +266,11 @@ func (g *generator) addStruct(name string, st *cc.StructType) {
 	}
 
 	// Register before resolving fields to break self-referential cycles.
-	sd := &structDecl{name: name, cname: externName(name, "struct", st.Typedef()), order: g.nextOrder()}
+	sd := &structDecl{
+		name:  g.rename.name(name),
+		cname: externName(name, "struct", st.Typedef()),
+		order: g.nextOrder(),
+	}
 	g.structs[name] = sd
 	if st.HasFlexibleArrayMember() {
 		return // opaque
@@ -262,7 +283,11 @@ func (g *generator) addUnion(name string, ut *cc.UnionType) {
 		return
 	}
 
-	sd := &structDecl{name: name, cname: externName(name, "union", ut.Typedef()), order: g.nextOrder()}
+	sd := &structDecl{
+		name:  g.rename.name(name),
+		cname: externName(name, "union", ut.Typedef()),
+		order: g.nextOrder(),
+	}
 	g.structs[name] = sd
 	sd.fields = g.mapFields(ut)
 }
@@ -303,7 +328,7 @@ func (g *generator) mapFields(at aggregate) []fieldDecl {
 		if goType == "" {
 			return nil // unmappable - opaque
 		}
-		name := cname
+		name := g.rename.name(cname)
 		if goReserved[name] {
 			// A `c:"..."` tag keeps the C name when the Go one has to change.
 			name += "_"
@@ -327,7 +352,12 @@ func (g *generator) addEnumConsts(et *cc.EnumType) {
 		if valStr == "" {
 			continue
 		}
-		g.consts[name] = constDecl{name: name, value: valStr, order: g.nextOrder()}
+		g.consts[name] = constDecl{
+			name:  g.rename.name(name),
+			cname: name,
+			value: valStr,
+			order: g.nextOrder(),
+		}
 	}
 }
 
@@ -360,7 +390,8 @@ func (g *generator) addFunc(name string, ft *cc.FunctionType) {
 	}
 
 	g.funcs[name] = &funcDecl{
-		name:     name,
+		name:     g.rename.name(name),
+		cname:    name,
 		params:   params,
 		result:   result,
 		variadic: ft.IsVariadic(),
@@ -446,8 +477,36 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 		if value == "" && note == "" {
 			continue
 		}
-		g.consts[name] = constDecl{name: name, value: value, note: note, order: g.nextOrder()}
+		g.consts[name] = constDecl{
+			name:  g.rename.name(name),
+			cname: name,
+			value: value,
+			note:  note,
+			order: g.nextOrder(),
+		}
 	}
+}
+
+// checkNames reports two C symbols that map to one So name. The So names of
+// one package share a single scope, unlike the C names of a header, where a
+// struct tag and a function can be the same.
+func (g *generator) checkNames() error {
+	var all []symbol
+	all = append(all, symbols(g.funcTypes)...)
+	all = append(all, symbols(g.structs)...)
+	all = append(all, symbols(g.consts)...)
+	all = append(all, symbols(g.vars)...)
+	all = append(all, symbols(g.funcs)...)
+
+	seen := make(map[string]string, len(all))
+	for _, s := range all {
+		cname, name := s.names()
+		if prev, ok := seen[name]; ok {
+			return fmt.Errorf("%s and %s both map to %s", prev, cname, name)
+		}
+		seen[name] = cname
+	}
+	return nil
 }
 
 func (g *generator) emit() []byte {
@@ -511,14 +570,14 @@ func (g *generator) emitConsts(buf *strings.Builder) {
 	for _, c := range sorted(g.consts) {
 		if c.value == "" {
 			buf.WriteString("\n// ")
-			buf.WriteString(c.name)
+			buf.WriteString(c.cname)
 			buf.WriteString(": ")
 			buf.WriteString(c.note)
 			buf.WriteString("\n")
 			continue
 		}
 		buf.WriteString("\n//so:extern ")
-		buf.WriteString(c.name)
+		buf.WriteString(c.cname)
 		buf.WriteString("\nconst ")
 		buf.WriteString(c.name)
 		buf.WriteString(" = ")
@@ -530,7 +589,7 @@ func (g *generator) emitConsts(buf *strings.Builder) {
 func (g *generator) emitVars(buf *strings.Builder) {
 	for _, v := range sorted(g.vars) {
 		buf.WriteString("\n//so:extern ")
-		buf.WriteString(v.name)
+		buf.WriteString(v.cname)
 		buf.WriteString("\nvar ")
 		buf.WriteString(v.name)
 		buf.WriteString(" ")
@@ -542,7 +601,7 @@ func (g *generator) emitVars(buf *strings.Builder) {
 func (g *generator) emitFuncs(buf *strings.Builder) {
 	for _, f := range sorted(g.funcs) {
 		buf.WriteString("\n//so:extern ")
-		buf.WriteString(f.name)
+		buf.WriteString(f.cname)
 		buf.WriteString("\nfunc ")
 		buf.WriteString(f.name)
 		buf.WriteString("(")
