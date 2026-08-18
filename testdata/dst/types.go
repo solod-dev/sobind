@@ -66,3 +66,6 @@ func process(buf *Buf, mode c.Int, n c.Size, msg string) c.Int
 
 //so:extern read_buf
 func read_buf(buf *Buf, dst any, n c.Size) c.SSize
+
+//so:extern generichash
+func generichash(out *c.UChar, outlen c.Size, in *c.UChar, inlen c.ULongLong, key *c.UChar, keylen c.Size) c.Int

@@ -95,14 +95,23 @@ func (g *generator) mapPointerType(pt *cc.PointerType) string {
 	if elem.Kind() == cc.Void {
 		return "any"
 	}
-	// A pointer to any char type is a C string, unless it is declared with a
-	// fixed-width typedef (uint8_t*), which marks it as a byte buffer.
-	isChar := elem.Kind() == cc.Char || elem.Kind() == cc.SChar || elem.Kind() == cc.UChar
-	if isChar && fixedWidth[typedefName(elem)] == "" {
-		if elem.Attributes().IsConst() {
-			return "*c.ConstChar"
+	// A pointer to a char type declared with a fixed-width typedef (uint8_t*)
+	// is a byte buffer, mapped through the typedef below. A pointer to plain
+	// char is a C string. signed char and unsigned char keep their signedness,
+	// both because they are usually byte buffers rather than text and because
+	// mapping them to plain char triggers a C pointer-sign warning at the call.
+	if fixedWidth[typedefName(elem)] == "" {
+		switch elem.Kind() {
+		case cc.Char:
+			if elem.Attributes().IsConst() {
+				return "*c.ConstChar"
+			}
+			return "*c.Char"
+		case cc.SChar:
+			return "*c.SChar"
+		case cc.UChar:
+			return "*c.UChar"
 		}
-		return "*c.Char"
 	}
 	if elem.Kind() == cc.Function {
 		ft, ok := elem.(*cc.FunctionType)

@@ -68,3 +68,7 @@ struct Buf {
 
 int process(struct Buf *buf, enum Mode mode, size_t n, const char *msg);
 ssize_t read_buf(struct Buf *buf, void *dst, size_t n);
+
+int generichash(unsigned char *out, size_t outlen,
+                const unsigned char *in, unsigned long long inlen,
+                const unsigned char *key, size_t keylen);
