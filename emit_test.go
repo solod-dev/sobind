@@ -58,7 +58,8 @@ func TestBindCollision(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected a name collision error")
 	}
-	want := "UV_TIMEOUT and uv_timeout both map to Timeout"
+	want := "C names collide; copy these into a -rename file and edit the So names apart:" +
+		"\nUV_TIMEOUT  Timeout\nuv_timeout  Timeout"
 	if err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
 	}

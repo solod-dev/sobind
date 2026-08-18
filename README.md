@@ -56,7 +56,7 @@ A library often spells one prefix in two cases, `uv_` on functions and `UV_` on 
 sobind -style=go -strip sqlite3_ -strip SQLITE_ -o sqlite3.go sqlite3.h
 ```
 
-Two C names that map to one So name are an error, because the So names of one package share a single scope. sobind reports both C names and emits nothing. Pick a different set of prefixes, or rename the symbols with `-rename`.
+Two C names that map to one So name are an error, because the So names of one package share a single scope. sobind lists every colliding pair as `cname soname` lines and emits nothing. Pick a different set of prefixes, or paste the lines into a `-rename` file and edit the So names apart.
 
 Some collisions no set of prefixes can fix: libsodium has both `crypto_aead_chacha20poly1305_IETF_ABYTES` and `crypto_aead_chacha20poly1305_ietf_ABYTES`, two symbols that differ only in case. A `-rename` file assigns the final So name to a C name, verbatim, one pair per line:
 

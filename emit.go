@@ -507,9 +507,7 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 	}
 }
 
-// checkNames reports two C symbols that map to one So name. The So names of
-// one package share a single scope, unlike the C names of a header, where a
-// struct tag and a function can be the same.
+// checkNames reports C symbols that map to one So name.
 func (g *generator) checkNames() error {
 	var all []symbol
 	all = append(all, symbols(g.funcTypes)...)
@@ -518,15 +516,41 @@ func (g *generator) checkNames() error {
 	all = append(all, symbols(g.vars)...)
 	all = append(all, symbols(g.funcs)...)
 
-	seen := make(map[string]string, len(all))
+	// So name to the C names that map to it, and the So names in first-seen
+	// order for a stable report.
+	cnames := map[string][]string{}
+	var order []string
 	for _, s := range all {
 		cname, name := s.names()
-		if prev, ok := seen[name]; ok {
-			return fmt.Errorf("%s and %s both map to %s", prev, cname, name)
+		if _, ok := cnames[name]; !ok {
+			order = append(order, name)
 		}
-		seen[name] = cname
+		cnames[name] = append(cnames[name], cname)
 	}
-	return nil
+
+	// Collect the colliding pairs and the width of the C name column so the So
+	// names line up.
+	type pair struct{ cname, soname string }
+	var pairs []pair
+	width := 0
+	for _, name := range order {
+		if len(cnames[name]) < 2 {
+			continue
+		}
+		for _, cname := range cnames[name] {
+			pairs = append(pairs, pair{cname, name})
+			width = max(width, len(cname))
+		}
+	}
+	if len(pairs) == 0 {
+		return nil
+	}
+
+	var buf strings.Builder
+	for _, p := range pairs {
+		fmt.Fprintf(&buf, "\n%-*s  %s", width, p.cname, p.soname)
+	}
+	return fmt.Errorf("C names collide; copy these into a -rename file and edit the So names apart:%s", buf.String())
 }
 
 func (g *generator) emit() []byte {
