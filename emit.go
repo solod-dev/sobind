@@ -12,11 +12,12 @@ import (
 
 // Options control the emitted Go source.
 type Options struct {
-	Package  string    // Go package name
-	Includes []string  // extra directories to search for included headers
-	Body     bool      // emit function bodies instead of declarations only
-	Style    nameStyle // symbol naming style
-	Strip    []string  // C name prefixes to remove, Go naming style only
+	Package  string            // Go package name
+	Includes []string          // extra directories to search for included headers
+	Body     bool              // emit function bodies instead of declarations only
+	Style    nameStyle         // symbol naming style
+	Strip    []string          // C name prefixes to remove, Go naming style only
+	Rename   map[string]string // C name to So name, overrides the style
 }
 
 // Emit parses C header files and returns a Go source file with so:extern declarations.
@@ -56,7 +57,7 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 
 	g := &generator{
 		opts:      opts,
-		rename:    newRenamer(opts.Style, opts.Strip),
+		rename:    newRenamer(opts.Style, opts.Strip, opts.Rename),
 		allowed:   allowed,
 		structs:   make(map[string]*structDecl),
 		enums:     make(map[string]bool),

@@ -64,6 +64,18 @@ func TestBindCollision(t *testing.T) {
 	}
 }
 
+func TestBindRename(t *testing.T) {
+	// A rename file gives distinct So names to the two colliding symbols.
+	rename, err := parseRenames(filepath.Join("testdata/src", "collide.rename"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcPath := filepath.Join("testdata/src", "collide.h")
+	dstPath := filepath.Join("testdata/dst", "collide_rename.go")
+	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}, Rename: rename}
+	compare(t, srcPath, dstPath, opts)
+}
+
 // compare emits the header and diffs it against the expected output.
 func compare(t *testing.T, srcPath, dstPath string, opts Options) {
 	t.Helper()

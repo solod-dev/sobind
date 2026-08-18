@@ -26,13 +26,14 @@ func bind(args []string) error {
 	styleStr := flags.String("style", "c", "symbol naming: c (keep C names) or go (exported CamelCase)")
 	var strip stringList
 	flags.Var(&strip, "strip", "C name prefix to remove with -style=go (repeatable)")
+	renameFile := flags.String("rename", "", "file of 'cname soname' lines that set So names by hand")
 
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
 	if flags.NArg() == 0 {
 		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-body] " +
-			"[-style c|go] [-strip prefix] <path>")
+			"[-style c|go] [-strip prefix] [-rename file] <path>")
 	}
 
 	style, err := parseStyle(*styleStr)
@@ -41,6 +42,11 @@ func bind(args []string) error {
 	}
 	if style != styleGo && len(strip) > 0 {
 		return fmt.Errorf("-strip needs -style=go")
+	}
+
+	rename, err := parseRenames(*renameFile)
+	if err != nil {
+		return err
 	}
 
 	paths, err := collectPaths(flags.Args())
@@ -57,6 +63,7 @@ func bind(args []string) error {
 		Body:     *body,
 		Style:    style,
 		Strip:    strip,
+		Rename:   rename,
 	}
 	out, err := Emit(paths, opts)
 	if err != nil {
@@ -65,6 +72,36 @@ func bind(args []string) error {
 
 	err = writeOutput(*outFile, out)
 	return err
+}
+
+// parseRenames reads a rename file: one 'cname soname' pair per line, where
+// soname is the So name to give the C symbol cname, verbatim. Blank lines and
+// lines starting with # are ignored. An empty path yields a nil map.
+func parseRenames(path string) (map[string]string, error) {
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	rename := map[string]string{}
+	for i, line := range strings.Split(string(data), "\n") {
+		text := strings.TrimSpace(line)
+		if text == "" || strings.HasPrefix(text, "#") {
+			continue
+		}
+		fields := strings.Fields(text)
+		if len(fields) != 2 {
+			return nil, fmt.Errorf("%s:%d: want 'cname soname', got %q", path, i+1, text)
+		}
+		cname, soname := fields[0], fields[1]
+		if prev, ok := rename[cname]; ok {
+			return nil, fmt.Errorf("%s:%d: %s renamed twice, to %s and %s", path, i+1, cname, prev, soname)
+		}
+		rename[cname] = soname
+	}
+	return rename, nil
 }
 
 // stringList collects a repeatable flag.

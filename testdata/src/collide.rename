@@ -1,0 +1,3 @@
+# Give the two colliding symbols distinct So names.
+UV_TIMEOUT TimeoutMs
+uv_timeout Timeout

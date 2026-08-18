@@ -33,19 +33,25 @@ func parseStyle(s string) (nameStyle, error) {
 
 // renamer maps a C symbol name to the So name of the symbol.
 type renamer struct {
-	style nameStyle
-	strip []string // C name prefixes to remove, longest first
+	style    nameStyle
+	strip    []string          // C name prefixes to remove, longest first
+	override map[string]string // C name to So name, verbatim, wins over the style
 }
 
-func newRenamer(style nameStyle, strip []string) *renamer {
+func newRenamer(style nameStyle, strip []string, override map[string]string) *renamer {
 	prefixes := slices.Clone(strip)
 	// The longest prefix wins, so sqlite3session_ goes before sqlite3_.
 	slices.SortFunc(prefixes, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
-	return &renamer{style: style, strip: prefixes}
+	return &renamer{style: style, strip: prefixes, override: override}
 }
 
 // name returns the So name for a C symbol name.
 func (r *renamer) name(cname string) string {
+	// An override settles names the style cannot tell apart, such as two C
+	// symbols that differ only in case.
+	if so, ok := r.override[cname]; ok {
+		return so
+	}
 	if r.style == styleC {
 		return cname
 	}

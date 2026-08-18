@@ -16,7 +16,7 @@ go install solod.dev/sobind@latest
 ## Usage
 
 ```
-sobind [-o output.go] [-pkg name] [-I dir] [-body] [-style c|go] [-strip prefix] <header.h | dir> ...
+sobind [-o output.go] [-pkg name] [-I dir] [-body] [-style c|go] [-strip prefix] [-rename file] <header.h | dir> ...
 ```
 
 - `-o` - output file (default: stdout)
@@ -25,6 +25,7 @@ sobind [-o output.go] [-pkg name] [-I dir] [-body] [-style c|go] [-strip prefix]
 - `-body` - emit function bodies (default: declaration only)
 - `-style` - symbol naming: `c` keeps the C names (default), `go` emits exported CamelCase names
 - `-strip` - C name prefix to remove with `-style=go` (repeatable)
+- `-rename` - file of `cname soname` lines that set So names by hand
 
 When given a directory, all `.h` files in it are processed.
 
@@ -55,7 +56,16 @@ A library often spells one prefix in two cases, `uv_` on functions and `UV_` on 
 sobind -style=go -strip sqlite3_ -strip SQLITE_ -o sqlite3.go sqlite3.h
 ```
 
-Two C names that map to one So name are an error, because the So names of one package share a single scope. sobind reports both C names and emits nothing. Pick a different set of prefixes, or rename one of the two symbols by hand.
+Two C names that map to one So name are an error, because the So names of one package share a single scope. sobind reports both C names and emits nothing. Pick a different set of prefixes, or rename the symbols with `-rename`.
+
+Some collisions no set of prefixes can fix: libsodium has both `crypto_aead_chacha20poly1305_IETF_ABYTES` and `crypto_aead_chacha20poly1305_ietf_ABYTES`, two symbols that differ only in case. A `-rename` file assigns the final So name to a C name, verbatim, one pair per line:
+
+```
+crypto_aead_chacha20poly1305_IETF_ABYTES  AeadChacha20poly1305IetfAbytesLegacy
+crypto_aead_chacha20poly1305_ietf_ABYTES  AeadChacha20poly1305IetfAbytes
+```
+
+A renamed name skips `-strip` and the CamelCase rules, so it is used as written. Blank lines and lines starting with `#` are ignored. The rename works with either `-style`.
 
 ## Example
 
