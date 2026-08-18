@@ -95,11 +95,15 @@ type paramDecl struct {
 	typ  string
 }
 
+// varDecl is a C global variable, or an object-like macro that expands to a
+// string literal. A macro has no So type to be a constant of, so it becomes a
+// variable of the C string type the literal really has.
 type varDecl struct {
-	name  string
-	cname string
-	typ   string
-	order int
+	name    string
+	cname   string
+	typ     string
+	comment string // the C text of a string macro
+	order   int
 }
 
 func (d varDecl) ordinal() int            { return d.order }

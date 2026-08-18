@@ -57,13 +57,23 @@ const RATIO = 0.5
 //so:extern SCALE
 const SCALE = 0.5
 
+// TAIL: string expression, define the constant manually
+
 // THIRD: float expression, define the constant manually
-
-//so:extern TITLE
-const TITLE = "1.2.3"
-
-//so:extern VERSION
-const VERSION = "1.2.3"
 
 //so:extern WHOLE
 const WHOLE = 5.
+
+// WIDE: wide string, define the constant manually
+
+//so:extern GREETING
+var GREETING *c.ConstChar // "hello" " world"
+
+//so:extern QUOTED
+var QUOTED *c.ConstChar // "say \"hi\""
+
+//so:extern TITLE
+var TITLE *c.ConstChar // "1.2.3"
+
+//so:extern VERSION
+var VERSION *c.ConstChar // "1.2.3"

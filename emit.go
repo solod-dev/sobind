@@ -467,22 +467,41 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 		if _, exists := g.consts[name]; exists {
 			continue
 		}
+		if _, exists := g.vars[name]; exists {
+			continue
+		}
 
 		pos := m.Position().Filename
 		if !g.isAllowed(pos) {
 			continue
 		}
 
-		value, note := macroValue(m, macros)
-		if value == "" && note == "" {
-			continue
-		}
-		g.consts[name] = constDecl{
-			name:  g.rename.name(name),
-			cname: name,
-			value: value,
-			note:  note,
-			order: g.nextOrder(),
+		kind, value, note := macroValue(m, macros)
+		switch {
+		case note != "":
+			g.consts[name] = constDecl{
+				name:  g.rename.name(name),
+				cname: name,
+				note:  note,
+				order: g.nextOrder(),
+			}
+		case kind == macroString:
+			// A string literal is a char array in C, not a So string, so the
+			// macro names a C string pointer.
+			g.vars[name] = &varDecl{
+				name:    g.rename.name(name),
+				cname:   name,
+				typ:     "*c.ConstChar",
+				comment: value,
+				order:   g.nextOrder(),
+			}
+		case value != "":
+			g.consts[name] = constDecl{
+				name:  g.rename.name(name),
+				cname: name,
+				value: value,
+				order: g.nextOrder(),
+			}
 		}
 	}
 }
@@ -594,6 +613,10 @@ func (g *generator) emitVars(buf *strings.Builder) {
 		buf.WriteString(v.name)
 		buf.WriteString(" ")
 		buf.WriteString(v.typ)
+		if v.comment != "" {
+			buf.WriteString(" // ")
+			buf.WriteString(v.comment)
+		}
 		buf.WriteString("\n")
 	}
 }

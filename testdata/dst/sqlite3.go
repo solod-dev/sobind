@@ -44,11 +44,11 @@ type sqlite3_value struct {}
 //so:extern sqlite3_context
 type sqlite3_context struct {}
 
-//so:extern SQLITE_VERSION
-const SQLITE_VERSION = "3.45.0"
-
 //so:extern SQLITE_VERSION_NUMBER
 const SQLITE_VERSION_NUMBER = 3045000
+
+//so:extern SQLITE_VERSION
+var SQLITE_VERSION *c.ConstChar // "3.45.0"
 
 //so:extern sqlite3_libversion
 func sqlite3_libversion() *c.ConstChar

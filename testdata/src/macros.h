@@ -8,6 +8,14 @@
 #define BOUND (LIMIT)
 #define TITLE VERSION
 
+// Strings: adjacent literals concatenate.
+#define GREETING "hello" " world"
+#define QUOTED "say \"hi\""
+
+// Strings sobind can't point at: reported, not guessed.
+#define WIDE L"abc"
+#define TAIL (VERSION + 1)
+
 // Floats: a single literal, with any suffix or exponent, and signed.
 #define SCALE 0.5
 #define RATIO 0.5f
