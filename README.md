@@ -17,23 +17,32 @@ go install solod.dev/sobind@latest
 
 ```
 sobind [-o output.go] [-pkg name] [-I dir] [-scope dir] [-body] [-style c|go] [-strip prefix] [-rename file] <header.h | dir> ...
-```
 
-- `-o` - output file (default: stdout)
-- `-pkg` - Go package name (default: `main`)
-- `-I` - include search directory (repeatable)
-- `-scope` - directory whose headers are emitted, beyond the named files (repeatable)
-- `-body` - emit function bodies (default: declaration only)
-- `-style` - symbol naming: `c` keeps the C names (default), `go` emits exported CamelCase names
-- `-strip` - C name prefix to remove with `-style=go` (repeatable)
-- `-rename` - file of `cname soname` lines that set So names by hand, or a bare `cname` line to drop a symbol
+Usage:
+  -I value
+    	include search directory (repeatable)
+  -body
+    	emit function bodies (default: declaration only)
+  -o string
+    	output file (default: stdout)
+  -pkg string
+    	Go package name (default "main")
+  -rename string
+    	file of 'cname soname' lines that set So names by hand
+  -scope value
+    	directory whose headers are emitted, beyond the named files (repeatable)
+  -strip value
+    	C name prefix to remove with -style=go (repeatable)
+  -style string
+    	symbol naming: c (keep C names) or go (exported CamelCase) (default "c")
+```
 
 When given a directory, all `.h` files in it are processed.
 
 By default only the named headers are emitted; anything they include is parsed but skipped, so system headers stay out of the binding. An umbrella header like `sodium.h` holds no declarations of its own, just includes of the library's `sodium/*.h` headers, so on its own it emits nothing. Point `-scope` at the library's header tree to emit every header under it:
 
 ```
-sobind -I libsodium/include -scope libsodium/include -o extern.go libsodium/include/sodium.h
+sobind -o extern.go -scope libsodium/include libsodium/include/sodium.h
 ```
 
 ## Naming
@@ -86,7 +95,7 @@ Dropping a struct or a typedef that other declarations point at leaves the outpu
 ## Example
 
 ```
-sobind -pkg main -o sqlite3.go sqlite3.h
-sobind -I . -o sdl3.go SDL3
-sobind -pkg libuv -style=go -strip uv_ -o libuv.go uv.h
+sobind -o sqlite3.go -pkg main sqlite3.h
+sobind -o sdl3.go -I . SDL3
+sobind -o libuv.go -pkg libuv -style=go -strip uv_ uv.h
 ```
