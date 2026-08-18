@@ -22,6 +22,8 @@ func bind(args []string) error {
 	pkgName := flags.String("pkg", "main", "Go package name")
 	var includes stringList
 	flags.Var(&includes, "I", "include search directory (repeatable)")
+	var scope stringList
+	flags.Var(&scope, "scope", "directory whose headers are emitted, beyond the named files (repeatable)")
 	body := flags.Bool("body", false, "emit function bodies (default: declaration only)")
 	styleStr := flags.String("style", "c", "symbol naming: c (keep C names) or go (exported CamelCase)")
 	var strip stringList
@@ -32,8 +34,18 @@ func bind(args []string) error {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-body] " +
+		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-scope dir] [-body] " +
 			"[-style c|go] [-strip prefix] [-rename file] <path>")
+	}
+
+	for _, s := range scope {
+		info, err := os.Stat(s)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return fmt.Errorf("-scope %s: not a directory", s)
+		}
 	}
 
 	style, err := parseStyle(*styleStr)
@@ -60,6 +72,7 @@ func bind(args []string) error {
 	opts := Options{
 		Package:  *pkgName,
 		Includes: includes,
+		Scope:    scope,
 		Body:     *body,
 		Style:    style,
 		Strip:    strip,

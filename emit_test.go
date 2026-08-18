@@ -50,6 +50,16 @@ func TestBindStyle(t *testing.T) {
 	compare(t, srcPath, dstPath, opts)
 }
 
+func TestBindScope(t *testing.T) {
+	// -scope emits the headers under a directory, so an umbrella header that
+	// only includes them produces a binding. The default TestBind case covers
+	// the same header without -scope, where it emits nothing.
+	srcPath := filepath.Join("testdata/src", "umbrella.h")
+	dstPath := filepath.Join("testdata/dst", "umbrella_scope.go")
+	opts := Options{Package: "main", Scope: []string{"testdata/src/umbrella"}}
+	compare(t, srcPath, dstPath, opts)
+}
+
 func TestBindCollision(t *testing.T) {
 	// Check that two C names mapping to one So name fail.
 	srcPath := filepath.Join("testdata/src", "collide.h")

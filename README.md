@@ -16,18 +16,25 @@ go install solod.dev/sobind@latest
 ## Usage
 
 ```
-sobind [-o output.go] [-pkg name] [-I dir] [-body] [-style c|go] [-strip prefix] [-rename file] <header.h | dir> ...
+sobind [-o output.go] [-pkg name] [-I dir] [-scope dir] [-body] [-style c|go] [-strip prefix] [-rename file] <header.h | dir> ...
 ```
 
 - `-o` - output file (default: stdout)
 - `-pkg` - Go package name (default: `main`)
 - `-I` - include search directory (repeatable)
+- `-scope` - directory whose headers are emitted, beyond the named files (repeatable)
 - `-body` - emit function bodies (default: declaration only)
 - `-style` - symbol naming: `c` keeps the C names (default), `go` emits exported CamelCase names
 - `-strip` - C name prefix to remove with `-style=go` (repeatable)
 - `-rename` - file of `cname soname` lines that set So names by hand, or a bare `cname` line to drop a symbol
 
 When given a directory, all `.h` files in it are processed.
+
+By default only the named headers are emitted; anything they include is parsed but skipped, so system headers stay out of the binding. An umbrella header like `sodium.h` holds no declarations of its own, just includes of the library's `sodium/*.h` headers, so on its own it emits nothing. Point `-scope` at the library's header tree to emit every header under it:
+
+```
+sobind -I libsodium/include -scope libsodium/include -o extern.go libsodium/include/sodium.h
+```
 
 ## Naming
 

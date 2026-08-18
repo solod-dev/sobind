@@ -14,6 +14,7 @@ import (
 type Options struct {
 	Package  string            // Go package name
 	Includes []string          // extra directories to search for included headers
+	Scope    []string          // directories whose headers are emitted, beyond the named files
 	Body     bool              // emit function bodies instead of declarations only
 	Style    nameStyle         // symbol naming style
 	Strip    []string          // C name prefixes to remove, Go naming style only
@@ -55,10 +56,23 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 		allowed[abs] = true
 	}
 
+	// A scope directory widens emission past the named files to every header
+	// under it, so an umbrella header that only includes the library's own
+	// headers still produces a binding.
+	scope := make([]string, 0, len(opts.Scope))
+	for _, s := range opts.Scope {
+		abs, err := filepath.Abs(s)
+		if err != nil {
+			return nil, err
+		}
+		scope = append(scope, abs)
+	}
+
 	g := &generator{
 		opts:      opts,
 		rename:    newRenamer(opts.Style, opts.Strip, opts.Rename),
 		allowed:   allowed,
+		scope:     scope,
 		structs:   make(map[string]*structDecl),
 		enums:     make(map[string]bool),
 		consts:    make(map[string]constDecl),
@@ -89,6 +103,7 @@ type generator struct {
 	opts      Options
 	rename    *renamer
 	allowed   map[string]bool
+	scope     []string
 	structs   map[string]*structDecl
 	enums     map[string]bool
 	consts    map[string]constDecl
@@ -108,7 +123,20 @@ func (g *generator) isAllowed(pos string) bool {
 	if err != nil {
 		return false
 	}
-	return g.allowed[abs]
+	if g.allowed[abs] {
+		return true
+	}
+	for _, dir := range g.scope {
+		if underDir(dir, abs) {
+			return true
+		}
+	}
+	return false
+}
+
+// underDir reports whether path is dir itself or a file beneath it.
+func underDir(dir, path string) bool {
+	return path == dir || strings.HasPrefix(path, dir+string(filepath.Separator))
 }
 
 func (g *generator) walkAST(ast *cc.AST) {
