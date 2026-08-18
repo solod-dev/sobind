@@ -74,9 +74,10 @@ func bind(args []string) error {
 	return err
 }
 
-// parseRenames reads a rename file: one 'cname soname' pair per line, where
-// soname is the So name to give the C symbol cname, verbatim. Blank lines and
-// lines starting with # are ignored. An empty path yields a nil map.
+// parseRenames reads a rename file. A 'cname soname' line gives the C symbol
+// cname the So name soname, verbatim. A 'cname' line on its own drops the
+// symbol, recorded as an empty So name. Blank lines and lines starting with #
+// are ignored. An empty path yields a nil map.
 func parseRenames(path string) (map[string]string, error) {
 	if path == "" {
 		return nil, nil
@@ -92,14 +93,18 @@ func parseRenames(path string) (map[string]string, error) {
 			continue
 		}
 		fields := strings.Fields(text)
-		if len(fields) != 2 {
-			return nil, fmt.Errorf("%s:%d: want 'cname soname', got %q", path, i+1, text)
+		if len(fields) < 1 || len(fields) > 2 {
+			return nil, fmt.Errorf("%s:%d: want 'cname' or 'cname soname', got %q", path, i+1, text)
 		}
-		cname, soname := fields[0], fields[1]
-		if prev, ok := rename[cname]; ok {
-			return nil, fmt.Errorf("%s:%d: %s renamed twice, to %s and %s", path, i+1, cname, prev, soname)
+		cname := fields[0]
+		if _, ok := rename[cname]; ok {
+			return nil, fmt.Errorf("%s:%d: %s listed twice", path, i+1, cname)
 		}
-		rename[cname] = soname
+		if len(fields) == 2 {
+			rename[cname] = fields[1]
+		} else {
+			rename[cname] = "" // drop the symbol
+		}
 	}
 	return rename, nil
 }

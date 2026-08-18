@@ -77,6 +77,19 @@ func TestBindRename(t *testing.T) {
 	compare(t, srcPath, dstPath, opts)
 }
 
+func TestBindExclude(t *testing.T) {
+	// A rename file with a bare C name drops that symbol, so the pair no
+	// longer collides.
+	rename, err := parseRenames(filepath.Join("testdata/src", "collide_exclude.rename"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	srcPath := filepath.Join("testdata/src", "collide.h")
+	dstPath := filepath.Join("testdata/dst", "collide_exclude.go")
+	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}, Rename: rename}
+	compare(t, srcPath, dstPath, opts)
+}
+
 // compare emits the header and diffs it against the expected output.
 func compare(t *testing.T, srcPath, dstPath string, opts Options) {
 	t.Helper()

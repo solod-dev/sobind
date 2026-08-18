@@ -25,7 +25,7 @@ sobind [-o output.go] [-pkg name] [-I dir] [-body] [-style c|go] [-strip prefix]
 - `-body` - emit function bodies (default: declaration only)
 - `-style` - symbol naming: `c` keeps the C names (default), `go` emits exported CamelCase names
 - `-strip` - C name prefix to remove with `-style=go` (repeatable)
-- `-rename` - file of `cname soname` lines that set So names by hand
+- `-rename` - file of `cname soname` lines that set So names by hand, or a bare `cname` line to drop a symbol
 
 When given a directory, all `.h` files in it are processed.
 
@@ -66,6 +66,15 @@ crypto_aead_chacha20poly1305_ietf_ABYTES  AeadChacha20poly1305IetfAbytes
 ```
 
 A renamed name skips `-strip` and the CamelCase rules, so it is used as written. Blank lines and lines starting with `#` are ignored. The rename works with either `-style`.
+
+A bare `cname` line, with no So name, drops the symbol instead. Often the two colliding symbols are the same value under two names, like the compile-time macro `crypto_box_SECRETKEYBYTES` and the accessor function `crypto_box_secretkeybytes`. Rather than name each pair apart, drop the side you do not need:
+
+```
+crypto_box_curve25519xsalsa20poly1305_SECRETKEYBYTES
+crypto_box_curve25519xsalsa20poly1305_PUBLICKEYBYTES
+```
+
+Dropping a struct or a typedef that other declarations point at leaves the output referring to a missing type, so drop only symbols nothing else uses.
 
 ## Example
 

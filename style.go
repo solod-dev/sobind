@@ -35,7 +35,7 @@ func parseStyle(s string) (nameStyle, error) {
 type renamer struct {
 	style    nameStyle
 	strip    []string          // C name prefixes to remove, longest first
-	override map[string]string // C name to So name, verbatim, wins over the style
+	override map[string]string // C name to So name, verbatim, wins over the style; empty drops the symbol
 }
 
 func newRenamer(style nameStyle, strip []string, override map[string]string) *renamer {
@@ -48,8 +48,9 @@ func newRenamer(style nameStyle, strip []string, override map[string]string) *re
 // name returns the So name for a C symbol name.
 func (r *renamer) name(cname string) string {
 	// An override settles names the style cannot tell apart, such as two C
-	// symbols that differ only in case.
-	if so, ok := r.override[cname]; ok {
+	// symbols that differ only in case. An empty override marks a dropped
+	// symbol, which excluded removes after the walk; name it as usual until then.
+	if so, ok := r.override[cname]; ok && so != "" {
 		return so
 	}
 	if r.style == styleC {
@@ -61,6 +62,17 @@ func (r *renamer) name(cname string) string {
 		return name
 	}
 	return camel(dropTypeSuffix(cname))
+}
+
+// excluded returns the C names the rename file drops.
+func (r *renamer) excluded() []string {
+	var names []string
+	for cname, so := range r.override {
+		if so == "" {
+			names = append(names, cname)
+		}
+	}
+	return names
 }
 
 // cut removes the first matching prefix from a C name. The match ignores case.

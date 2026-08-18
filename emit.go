@@ -17,7 +17,7 @@ type Options struct {
 	Body     bool              // emit function bodies instead of declarations only
 	Style    nameStyle         // symbol naming style
 	Strip    []string          // C name prefixes to remove, Go naming style only
-	Rename   map[string]string // C name to So name, overrides the style
+	Rename   map[string]string // C name to So name, overrides the style; empty So name drops the symbol
 }
 
 // Emit parses C header files and returns a Go source file with so:extern declarations.
@@ -68,6 +68,7 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 	}
 
 	g.walkAST(ast)
+	g.dropExcluded()
 	if err := g.checkNames(); err != nil {
 		return nil, err
 	}
@@ -504,6 +505,19 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 				order: g.nextOrder(),
 			}
 		}
+	}
+}
+
+// dropExcluded removes the symbols the rename file drops. A dropped symbol
+// leaves the walk with a normal name, so this runs before checkNames, which
+// then ignores it. The keys of every declaration map are C names.
+func (g *generator) dropExcluded() {
+	for _, cname := range g.rename.excluded() {
+		delete(g.structs, cname)
+		delete(g.consts, cname)
+		delete(g.funcs, cname)
+		delete(g.vars, cname)
+		delete(g.funcTypes, cname)
 	}
 }
 
