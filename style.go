@@ -16,6 +16,9 @@ const (
 	// styleC keeps the C name. Most C names are lower case, so the symbol is
 	// unexported and only reachable inside the generated package.
 	styleC nameStyle = iota
+	// styleCap keeps the C name but capitalizes the first letter
+	// to export the symbol.
+	styleCap
 	// styleGo maps the C name to an exported CamelCase name.
 	styleGo
 )
@@ -25,10 +28,12 @@ func parseStyle(s string) (nameStyle, error) {
 	switch s {
 	case "c":
 		return styleC, nil
+	case "cap":
+		return styleCap, nil
 	case "go":
 		return styleGo, nil
 	}
-	return 0, fmt.Errorf("unknown name style %q, want c or go", s)
+	return 0, fmt.Errorf("unknown name style %q, want (c|cap|go)", s)
 }
 
 // renamer maps a C symbol name to the So name of the symbol.
@@ -53,15 +58,26 @@ func (r *renamer) name(cname string) string {
 	if so, ok := r.override[cname]; ok && so != "" {
 		return so
 	}
-	if r.style == styleC {
+
+	// Transform the C name to a So name according to the style.
+	switch r.style {
+	case styleC:
 		return cname
+	case styleCap:
+		// A removed prefix (after r.cut) can leave a name that starts with
+		// a digit, as in SDL_3DNOW. Such a name keeps the prefix.
+		if name := capitalize(r.cut(cname)); isExported(name) {
+			return name
+		}
+		return capitalize(cname)
+	case styleGo:
+		if name := camel(dropTypeSuffix(r.cut(cname))); isExported(name) {
+			return name
+		}
+		return camel(dropTypeSuffix(cname))
+	default:
+		panic(fmt.Sprintf("unknown name style %d", r.style))
 	}
-	// A removed prefix can leave a name that starts with a digit, as in
-	// SDL_3DNOW. Such a name keeps the prefix.
-	if name := camel(dropTypeSuffix(r.cut(cname))); isExported(name) {
-		return name
-	}
-	return camel(dropTypeSuffix(cname))
 }
 
 // excluded returns the C names the rename file drops.
@@ -95,6 +111,12 @@ func dropTypeSuffix(cname string) string {
 		return name
 	}
 	return cname
+}
+
+// capitalize returns the name with its first letter uppercased.
+func capitalize(name string) string {
+	first, size := utf8.DecodeRuneInString(name)
+	return string(unicode.ToUpper(first)) + name[size:]
 }
 
 // camel joins the underscore separated parts of a C name into one CamelCase

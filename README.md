@@ -32,9 +32,9 @@ Usage:
   -scope value
     	directory whose headers are emitted, beyond the named files (repeatable)
   -strip value
-    	C name prefix to remove with -style=go (repeatable)
+    	C name prefix to remove (repeatable)
   -style string
-    	symbol naming: c (keep C names) or go (exported CamelCase) (default "c")
+    	symbol naming: c (keep C names), cap (capitalized), or go (exported CamelCase)
 ```
 
 When given a directory, all `.h` files in it are processed.
@@ -47,9 +47,19 @@ sobind -o extern.go -scope libsodium/include libsodium/include/sodium.h
 
 ## Naming
 
-`-style=c` keeps every C name as it is. Most C names are lower case, so the symbols are unexported and only usable inside the generated package. This is the right mode for a header you bind in the program that uses it.
+### Original C names
 
-`-style=go` emits exported CamelCase names, for a binding package other packages import. The C name stays on the `//so:extern` line, so nothing is lost:
+`-style=c` keeps every C name as it is. Most C names are lower case, so the symbols are unexported and only usable inside the generated package.
+
+### Capitalized names
+
+`-style=cap` capitalizes every C name for export without otherwise changing it. It's the simplest way to export the binded API from your package.
+
+### Go-like names
+
+`-style=go` emits exported CamelCase names.
+
+The C name stays on the `//so:extern` line, so nothing is lost:
 
 ```go
 //so:extern uv_loop_close

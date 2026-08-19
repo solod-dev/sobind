@@ -25,9 +25,9 @@ func bind(args []string) error {
 	var scope stringList
 	flags.Var(&scope, "scope", "directory whose headers are emitted, beyond the named files (repeatable)")
 	body := flags.Bool("body", false, "emit function bodies (default: declaration only)")
-	styleStr := flags.String("style", "c", "symbol naming: c (keep C names) or go (exported CamelCase)")
+	styleStr := flags.String("style", "c", "symbol naming: c (keep C names), cap (capitalized), or go (exported CamelCase)")
 	var strip stringList
-	flags.Var(&strip, "strip", "C name prefix to remove with -style=go (repeatable)")
+	flags.Var(&strip, "strip", "C name prefix to remove (repeatable)")
 	renameFile := flags.String("rename", "", "file of 'cname soname' lines that set So names by hand")
 
 	if err := flags.Parse(args); err != nil {
@@ -51,9 +51,6 @@ func bind(args []string) error {
 	style, err := parseStyle(*styleStr)
 	if err != nil {
 		return err
-	}
-	if style != styleGo && len(strip) > 0 {
-		return fmt.Errorf("-strip needs -style=go")
 	}
 
 	rename, err := parseRenames(*renameFile)

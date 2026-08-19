@@ -42,8 +42,14 @@ func TestBindBody(t *testing.T) {
 	compare(t, srcPath, dstPath, Options{Package: "main", Body: true})
 }
 
-func TestBindStyle(t *testing.T) {
-	// One prefix covers uv_ and UV_, because the match ignores case.
+func TestBindStyleCap(t *testing.T) {
+	srcPath := filepath.Join("testdata/src", "style.h")
+	dstPath := filepath.Join("testdata/dst", "style_cap.go")
+	opts := Options{Package: "main", Style: styleCap, Strip: []string{"uv_"}}
+	compare(t, srcPath, dstPath, opts)
+}
+
+func TestBindStyleGo(t *testing.T) {
 	srcPath := filepath.Join("testdata/src", "style.h")
 	dstPath := filepath.Join("testdata/dst", "style_go.go")
 	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}}
