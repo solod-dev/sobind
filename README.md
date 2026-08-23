@@ -16,9 +16,11 @@ go install solod.dev/sobind@latest
 ## Usage
 
 ```
-sobind [-o output.go] [-pkg name] [-I dir] [-scope dir] [-body] [-style c|go] [-strip prefix] [-rename file] <header.h | dir> ...
+sobind [-o output.go] [-pkg name] [-I dir] [-D name[=value]] [-scope dir] [-body] [-style c|go] [-strip prefix] [-rename file] <header.h | dir> ...
 
 Usage:
+  -D value
+    	macro to predefine, 'name' or 'name=value' (repeatable)
   -I value
     	include search directory (repeatable)
   -body
@@ -43,6 +45,12 @@ By default only the named headers are emitted; anything they include is parsed b
 
 ```
 sobind -o extern.go -scope libsodium/include libsodium/include/sodium.h
+```
+
+`-D` defines a macro, like the C compiler flag with the same name. Use it for macros that a header expects you to set, like the one that prevents `glfw3.h` from including the OpenGL headers:
+
+```
+sobind -o extern.go -D GLFW_INCLUDE_NONE -I /opt/homebrew/include /opt/homebrew/include/GLFW/glfw3.h
 ```
 
 ## Naming

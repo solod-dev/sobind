@@ -42,6 +42,12 @@ func TestBindBody(t *testing.T) {
 	compare(t, srcPath, dstPath, Options{Package: "main", Body: true})
 }
 
+func TestBindDefine(t *testing.T) {
+	srcPath := filepath.Join("testdata/src", "define.h")
+	dstPath := filepath.Join("testdata/dst", "define_audio.go")
+	compare(t, srcPath, dstPath, Options{Package: "main", Define: []string{"WITH_AUDIO"}})
+}
+
 func TestBindStyleCap(t *testing.T) {
 	srcPath := filepath.Join("testdata/src", "style.h")
 	dstPath := filepath.Join("testdata/dst", "style_cap.go")

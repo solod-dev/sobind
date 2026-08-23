@@ -22,6 +22,8 @@ func bind(args []string) error {
 	pkgName := flags.String("pkg", "main", "Go package name")
 	var includes stringList
 	flags.Var(&includes, "I", "include search directory (repeatable)")
+	var define stringList
+	flags.Var(&define, "D", "macro to predefine, 'name' or 'name=value' (repeatable)")
 	var scope stringList
 	flags.Var(&scope, "scope", "directory whose headers are emitted, beyond the named files (repeatable)")
 	body := flags.Bool("body", false, "emit function bodies (default: declaration only)")
@@ -34,8 +36,8 @@ func bind(args []string) error {
 		return err
 	}
 	if flags.NArg() == 0 {
-		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-scope dir] [-body] " +
-			"[-style c|go] [-strip prefix] [-rename file] <path>")
+		return fmt.Errorf("usage: bind [-o output.go] [-pkg name] [-I dir] [-D name[=value]] [-scope dir] " +
+			"[-body] [-style c|go] [-strip prefix] [-rename file] <path>")
 	}
 
 	for _, s := range scope {
@@ -69,6 +71,7 @@ func bind(args []string) error {
 	opts := Options{
 		Package:  *pkgName,
 		Includes: includes,
+		Define:   define,
 		Scope:    scope,
 		Body:     *body,
 		Style:    style,

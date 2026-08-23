@@ -14,6 +14,7 @@ import (
 type Options struct {
 	Package  string            // Go package name
 	Includes []string          // extra directories to search for included headers
+	Define   []string          // macros to predefine, 'name' or 'name=value'
 	Scope    []string          // directories whose headers are emitted, beyond the named files
 	Body     bool              // emit function bodies instead of declarations only
 	Style    nameStyle         // symbol naming style
@@ -37,6 +38,9 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 	sources := []cc.Source{
 		{Name: "<predefined>", Value: cfg.Predefined},
 		{Name: "<builtin>", Value: cc.Builtin},
+	}
+	if len(opts.Define) > 0 {
+		sources = append(sources, cc.Source{Name: "<defines>", Value: defineSource(opts.Define)})
 	}
 	for _, p := range paths {
 		sources = append(sources, cc.Source{Name: p})
@@ -87,6 +91,22 @@ func Emit(paths []string, opts Options) ([]byte, error) {
 		return nil, err
 	}
 	return g.emit(), nil
+}
+
+// defineSource turns the -D options into a C source with #define lines, parsed
+// before the headers. As with the C compiler, 'name=value' sets name to value,
+// and just 'name' sets it to 1. These macros are not part of any header, so
+// they are never emitted as constants.
+func defineSource(defines []string) string {
+	var buf strings.Builder
+	for _, d := range defines {
+		name, value, ok := strings.Cut(d, "=")
+		if !ok {
+			value = "1"
+		}
+		fmt.Fprintf(&buf, "#define %s %s\n", name, value)
+	}
+	return buf.String()
 }
 
 var goReserved = map[string]bool{
