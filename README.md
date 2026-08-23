@@ -55,52 +55,44 @@ sobind -o extern.go -scope libsodium/include libsodium/include/sodium.h
 
 `-style=cap` capitalizes every C name for export without otherwise changing it. It's the simplest way to export the binded API from your package.
 
+Combine it with `-strip=<prefix>` to remove the C name prefix:
+
+- `uv_buf_init` → `Buf_init`
+- `sqlite3_busy_timeout` → `Busy_timeout`
+
 ### Go-like names
 
 `-style=go` emits exported CamelCase names.
 
-The C name stays on the `//so:extern` line, so nothing is lost:
+The rules:
 
-```go
-//so:extern uv_loop_close
-func LoopClose(loop *Loop) c.Int
-```
+1. Remove a trailing `_t`: `loop_t` becomes `Loop`.
+2. Split on `_` and join the parts in CamelCase: `open_v2` becomes `OpenV2`. A part in upper case only is lowered first, so `RUN_DEFAULT` becomes `RunDefault`. Every other part keeps its inner capitals, so the field `pMethods` becomes `PMethods`.
 
-The rules, applied in this order:
+Combine `-style=go` with `-strip=<prefix>` to remove the C name prefix:
 
-1. Remove the first matching `-strip` prefix. The match ignores case and the longest prefix wins.
-2. Remove a trailing `_t`: `uv_loop_t` becomes `Loop`.
-3. Split on `_` and join the parts in CamelCase: `uv_open_v2` becomes `OpenV2`. A part in upper case only is lowered first, so `UV_RUN_DEFAULT` becomes `RunDefault`. Every other part keeps its inner capitals, so the field `pMethods` becomes `PMethods`.
+- `uv_buf_init` → `BufInit`
+- `sqlite3_busy_timeout` → `BusyTimeout`
 
-Go's initialisms do not apply: `uv_tcp_init` becomes `TcpInit`, not `TCPInit`. The mapping stays mechanical, so a name always translates the same way in both directions.
+### Renaming
 
-A prefix stays in place when removing it leaves a name that starts with a digit: `SDL_3DNOW` becomes `Sdl3dnow`.
+Using name-modifying flags like `-style` and `-strip` can lead to name collisions.
 
-A library often spells one prefix in two cases, `uv_` on functions and `UV_` on macros. One `-strip uv_` covers both. Pass an additional `-strip` if the prefixes differ beyond case:
+For example, `libuv.h` defines a `UV_FILE` macro. With `-strip=uv_` it maps to `FILE` and collides with the `FILE` typedef from `stdio.h`.
 
-```
-sobind -style=go -strip sqlite3_ -strip SQLITE_ -o sqlite3.go sqlite3.h
-```
-
-Two C names that map to one So name are an error, because the So names of one package share a single scope. sobind lists every colliding pair as `cname soname` lines and emits nothing. Pick a different set of prefixes, or paste the lines into a `-rename` file and edit the So names apart.
-
-Some collisions no set of prefixes can fix: libsodium has both `crypto_aead_chacha20poly1305_IETF_ABYTES` and `crypto_aead_chacha20poly1305_ietf_ABYTES`, two symbols that differ only in case. A `-rename` file assigns the final So name to a C name, verbatim, one pair per line:
+To solve such collisions, use the `-rename=<filename>` flag. The file maps a C name to a So name, one pair per line:
 
 ```
-crypto_aead_chacha20poly1305_IETF_ABYTES  AeadChacha20poly1305IetfAbytesLegacy
-crypto_aead_chacha20poly1305_ietf_ABYTES  AeadChacha20poly1305IetfAbytes
+# The symbol will be emitted as UvFile.
+UV_FILE  UvFile
 ```
 
-A renamed name skips `-strip` and the CamelCase rules, so it is used as written. Blank lines and lines starting with `#` are ignored. The rename works with either `-style`.
-
-A bare `cname` line, with no So name, drops the symbol instead. Often the two colliding symbols are the same value under two names, like the compile-time macro `crypto_box_SECRETKEYBYTES` and the accessor function `crypto_box_secretkeybytes`. Rather than name each pair apart, drop the side you do not need:
+A line with a C name without a So name drops the symbol instead:
 
 ```
-crypto_box_curve25519xsalsa20poly1305_SECRETKEYBYTES
-crypto_box_curve25519xsalsa20poly1305_PUBLICKEYBYTES
+# The symbol won't be emitted at all.
+Fts5Tokenizer
 ```
-
-Dropping a struct or a typedef that other declarations point at leaves the output referring to a missing type, so drop only symbols nothing else uses.
 
 ## Example
 
