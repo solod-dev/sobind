@@ -322,6 +322,53 @@ func (g *generator) addUnion(name string, ut *cc.UnionType) {
 	sd.fields = g.mapFields(ut)
 }
 
+// addConstStruct registers the const twin of a struct and returns its So name.
+// The twin repeats the fields of the base struct under the C name with a const
+// modifier. A So function passed as a C callback needs the twin to keep the
+// const of a pointer parameter.
+func (g *generator) addConstStruct(name string, st *cc.StructType) string {
+	key := constKey(name)
+	if sd, exists := g.structs[key]; exists {
+		return sd.name
+	}
+
+	// Register before resolving fields to break self-referential cycles.
+	sd := &structDecl{
+		name:  g.rename.constName(name),
+		cname: "const " + externName(name, "struct", st.Typedef()),
+		order: g.nextOrder(),
+	}
+	g.structs[key] = sd
+	if st.HasFlexibleArrayMember() {
+		return sd.name // opaque
+	}
+	sd.fields = g.mapFields(st)
+	return sd.name
+}
+
+// addConstUnion registers the const twin of a union and returns its So name.
+func (g *generator) addConstUnion(name string, ut *cc.UnionType) string {
+	key := constKey(name)
+	if sd, exists := g.structs[key]; exists {
+		return sd.name
+	}
+
+	sd := &structDecl{
+		name:  g.rename.constName(name),
+		cname: "const " + externName(name, "union", ut.Typedef()),
+		order: g.nextOrder(),
+	}
+	g.structs[key] = sd
+	sd.fields = g.mapFields(ut)
+	return sd.name
+}
+
+// constKey returns the map key of a const twin. The base type holds the plain
+// C name, so the twin needs a key of its own.
+func constKey(name string) string {
+	return "const " + name
+}
+
 // externName returns the C name of a struct or union. A typedef name stands on
 // its own, a tag needs the "struct" or "union" keyword at every use in C.
 func externName(name, keyword string, td *cc.Declarator) string {
@@ -542,6 +589,7 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 func (g *generator) dropExcluded() {
 	for _, cname := range g.rename.excluded() {
 		delete(g.structs, cname)
+		delete(g.structs, constKey(cname))
 		delete(g.consts, cname)
 		delete(g.funcs, cname)
 		delete(g.vars, cname)

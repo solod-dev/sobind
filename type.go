@@ -127,43 +127,23 @@ func (g *generator) mapPointerType(pt *cc.PointerType) string {
 }
 
 func (g *generator) mapStructType(st *cc.StructType) string {
-	// Use typedef name if available.
-	if td := st.Typedef(); td != nil {
-		name := td.Name()
-		if name != "" && !strings.HasPrefix(name, "_") {
-			// Ensure struct is registered.
-			g.addStruct(name, st)
-			return g.rename.name(name)
-		}
+	name := aggregateName(st.Typedef(), st.Tag())
+	if name == "" {
+		return ""
 	}
-	// Use tag name.
-	tag := st.Tag()
-	if tag.SrcStr() != "" {
-		name := tag.SrcStr()
-		g.addStruct(name, st)
-		return g.rename.name(name)
-	}
-	return ""
+	// Ensure struct is registered.
+	g.addStruct(name, st)
+	return g.rename.name(name)
 }
 
 func (g *generator) mapUnionType(ut *cc.UnionType) string {
-	// Use typedef name if available.
-	if td := ut.Typedef(); td != nil {
-		name := td.Name()
-		if name != "" && !strings.HasPrefix(name, "_") {
-			// Ensure union is registered.
-			g.addUnion(name, ut)
-			return g.rename.name(name)
-		}
+	name := aggregateName(ut.Typedef(), ut.Tag())
+	if name == "" {
+		return ""
 	}
-	// Use tag name.
-	tag := ut.Tag()
-	if tag.SrcStr() != "" {
-		name := tag.SrcStr()
-		g.addUnion(name, ut)
-		return g.rename.name(name)
-	}
-	return ""
+	// Ensure union is registered.
+	g.addUnion(name, ut)
+	return g.rename.name(name)
 }
 
 func (g *generator) mapFuncPtrType(ft *cc.FunctionType) string {
@@ -175,7 +155,7 @@ func (g *generator) mapFuncPtrType(ft *cc.FunctionType) string {
 		if i > 0 {
 			sig.WriteString(", ")
 		}
-		sig.WriteString(g.mapType(p.Type()))
+		sig.WriteString(g.mapConstType(p.Type()))
 	}
 	if ft.IsVariadic() {
 		if len(params) > 0 {
@@ -190,6 +170,55 @@ func (g *generator) mapFuncPtrType(ft *cc.FunctionType) string {
 		sig.WriteString(g.mapType(rt))
 	}
 	return sig.String()
+}
+
+// mapConstType maps a parameter type of a C function pointer. C compares two
+// function types parameter by parameter, and a pointer to a const type is not
+// compatible with a pointer to the same type without const. A So function
+// passed as the callback must keep the const, so a pointer to a const struct or
+// union maps to a const twin type. Every other type maps as usual: a top-level
+// const on a parameter does not affect C type compatibility.
+func (g *generator) mapConstType(t cc.Type) string {
+	pt, ok := t.(*cc.PointerType)
+	if !ok {
+		return g.mapType(t)
+	}
+	elem := pt.Elem()
+	if !elem.Attributes().IsConst() {
+		return g.mapType(t)
+	}
+
+	var twin string
+	switch at := elem.(type) {
+	case *cc.StructType:
+		twin = g.mapConstStructType(at)
+	case *cc.UnionType:
+		twin = g.mapConstUnionType(at)
+	}
+	if twin == "" {
+		return g.mapType(t)
+	}
+	return "*" + twin
+}
+
+func (g *generator) mapConstStructType(st *cc.StructType) string {
+	name := aggregateName(st.Typedef(), st.Tag())
+	if name == "" {
+		return ""
+	}
+	// Register the base struct too, so a callback can convert
+	// the const value to the base type.
+	g.addStruct(name, st)
+	return g.addConstStruct(name, st)
+}
+
+func (g *generator) mapConstUnionType(ut *cc.UnionType) string {
+	name := aggregateName(ut.Typedef(), ut.Tag())
+	if name == "" {
+		return ""
+	}
+	g.addUnion(name, ut)
+	return g.addConstUnion(name, ut)
 }
 
 func (g *generator) mapArrayType(at *cc.ArrayType) string {
@@ -237,6 +266,18 @@ func zeroValue(typ string) string {
 	}
 	// Struct type - return zero struct.
 	return typ + "{}"
+}
+
+// aggregateName returns the C name of a struct or union: the typedef name when
+// there is one, the tag otherwise. An unnamed type has no C name.
+func aggregateName(td *cc.Declarator, tag cc.Token) string {
+	if td != nil {
+		name := td.Name()
+		if name != "" && !strings.HasPrefix(name, "_") {
+			return name
+		}
+	}
+	return tag.SrcStr()
 }
 
 // typedefName returns the name a type is declared with, or "" if the type is

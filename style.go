@@ -80,6 +80,16 @@ func (r *renamer) name(cname string) string {
 	}
 }
 
+// constName returns the So name for the const twin of a C type. The C style
+// keeps the lower case C names, so the twin takes a lower case prefix too.
+func (r *renamer) constName(cname string) string {
+	name := r.name(cname)
+	if r.style == styleC {
+		return "const_" + name
+	}
+	return "Const" + name
+}
+
 // excluded returns the C names the rename file drops.
 func (r *renamer) excluded() []string {
 	var names []string
