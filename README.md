@@ -2,12 +2,18 @@
 
 Generates So extern declarations from C header files.
 
-`sobind` parses `.h` files and emits a Go source file with `//so:extern` stubs
+`sobind` parses `.h` files and emits a Go source file with `so:extern` stubs
 for structs, unions, constants, variables, function pointer typedefs, and function declarations.
 
-Note that `sobind` is far from finished and can't handle many situations correctly. It's still useful, but you should treat the generated file as a starting point, not as the final result.
+Usually, the generated bindings are good enough to use as they are, without any manual changes. If `sobind` can't process a header or generates invalid Go code, please open an issue and I'll take a look.
 
-## Install
+[Installation](#installation) •
+[Usage](#usage) •
+[Naming](#naming) •
+[Notes](#notes) •
+[Examples](#examples)
+
+## Installation
 
 ```
 go install solod.dev/sobind@latest
@@ -117,10 +123,18 @@ Every note is a single line of the form `// sobind: <verb> <C name>, <reason>`, 
 - `skipped` — nothing is emitted for the C symbol. Declare it by hand if you need it.
 - `guessed` — the declaration is emitted, but not as C declares it. Check it before using it.
 
-## Example
+## Examples
 
 ```
 sobind -o sqlite3.go -pkg main sqlite3.h
 sobind -o sdl3.go -I . SDL3
-sobind -o libuv.go -pkg libuv -style=go -strip uv_ uv.h
+sobind -o libuv.go -pkg libuv -style=cap -strip uv_ uv.h
 ```
+
+Here are some bindings for popular C libraries generated with `sobind`:
+
+- [sodium](https://github.com/solod-dev/sodium)
+- [sqlite](https://github.com/solod-dev/sqlite)
+- [uv](https://github.com/solod-dev/uv)
+
+Check the `Makefile`s in these projects for examples of how to build your own.
