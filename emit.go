@@ -204,17 +204,7 @@ func (g *generator) walkDeclaration(decl *cc.Declaration) {
 		if ft, ok := t.(*cc.FunctionType); ok {
 			g.addFunc(name, ft)
 		} else {
-			goType := g.mapType(t)
-			if goType != "" {
-				if _, exists := g.vars[name]; !exists {
-					g.vars[name] = &varDecl{
-						name:  g.rename.name(name),
-						cname: name,
-						typ:   goType,
-						order: g.nextOrder(),
-					}
-				}
-			}
+			g.addVar(name, t)
 		}
 	}
 }
@@ -283,14 +273,18 @@ func (g *generator) walkTypedef(d *cc.Declarator) {
 			if ft, ok := elem.(*cc.FunctionType); ok {
 				// mapFuncPtrType registers the types it walks, so call it
 				// even when the typedef is already known.
-				sig := g.mapFuncPtrType(ft)
+				sig, reason := g.mapFuncPtrType(ft)
 				if _, exists := g.funcTypes[name]; !exists {
-					g.funcTypes[name] = funcTypeDecl{
+					td := funcTypeDecl{
 						name:  g.rename.name(name),
 						cname: name,
 						sig:   sig,
 						order: g.nextOrder(),
 					}
+					if reason != "" {
+						td.note = note{noteSkipped, name, reason}
+					}
+					g.funcTypes[name] = td
 				}
 			}
 			return
@@ -298,6 +292,24 @@ func (g *generator) walkTypedef(d *cc.Declarator) {
 		// Other pointer typedefs like typedef struct Foo* FooRef - skip,
 		// the struct itself will be handled separately.
 	}
+}
+
+// addVar registers a C global variable. A variable of a type sobind cannot map
+// is not emitted, and keeps a note in its place.
+func (g *generator) addVar(name string, t cc.Type) {
+	if _, exists := g.vars[name]; exists {
+		return
+	}
+	vd := &varDecl{
+		name:  g.rename.name(name),
+		cname: name,
+		typ:   g.mapType(t),
+		order: g.nextOrder(),
+	}
+	if vd.typ == "" {
+		vd.note = note{noteSkipped, name, "the type is unmappable"}
+	}
+	g.vars[name] = vd
 }
 
 func (g *generator) addStruct(name string, st *cc.StructType) {
@@ -312,10 +324,7 @@ func (g *generator) addStruct(name string, st *cc.StructType) {
 		order: g.nextOrder(),
 	}
 	g.structs[name] = sd
-	if st.HasFlexibleArrayMember() || !g.isAggregateAllowed(st.Typedef(), st.Tag()) {
-		return // opaque
-	}
-	sd.fields = g.mapFields(st)
+	g.fillStruct(sd, st)
 }
 
 func (g *generator) addUnion(name string, ut *cc.UnionType) {
@@ -329,10 +338,7 @@ func (g *generator) addUnion(name string, ut *cc.UnionType) {
 		order: g.nextOrder(),
 	}
 	g.structs[name] = sd
-	if !g.isAggregateAllowed(ut.Typedef(), ut.Tag()) {
-		return // opaque
-	}
-	sd.fields = g.mapFields(ut)
+	g.fillUnion(sd, ut)
 }
 
 // addConstStruct registers the const twin of a struct and returns its So name.
@@ -352,10 +358,7 @@ func (g *generator) addConstStruct(name string, st *cc.StructType) string {
 		order: g.nextOrder(),
 	}
 	g.structs[key] = sd
-	if st.HasFlexibleArrayMember() || !g.isAggregateAllowed(st.Typedef(), st.Tag()) {
-		return sd.name // opaque
-	}
-	sd.fields = g.mapFields(st)
+	g.fillStruct(sd, st)
 	return sd.name
 }
 
@@ -372,11 +375,39 @@ func (g *generator) addConstUnion(name string, ut *cc.UnionType) string {
 		order: g.nextOrder(),
 	}
 	g.structs[key] = sd
-	if !g.isAggregateAllowed(ut.Typedef(), ut.Tag()) {
-		return sd.name // opaque
-	}
-	sd.fields = g.mapFields(ut)
+	g.fillUnion(sd, ut)
 	return sd.name
+}
+
+// fillStruct resolves the fields of a struct into sd,
+// or leaves sd opaque with a note saying why.
+func (g *generator) fillStruct(sd *structDecl, st *cc.StructType) {
+	switch {
+	case !g.isAggregateAllowed(st.Typedef(), st.Tag()):
+		sd.note = note{noteOpaque, sd.cname, "declared outside the binding"}
+	case st.HasFlexibleArrayMember():
+		sd.note = note{noteOpaque, sd.cname, "has a flexible array member"}
+	default:
+		g.fillFields(sd, st)
+	}
+}
+
+// fillUnion resolves the fields of a union into sd,
+// or leaves sd opaque with a note saying why.
+func (g *generator) fillUnion(sd *structDecl, ut *cc.UnionType) {
+	if !g.isAggregateAllowed(ut.Typedef(), ut.Tag()) {
+		sd.note = note{noteOpaque, sd.cname, "declared outside the binding"}
+		return
+	}
+	g.fillFields(sd, ut)
+}
+
+func (g *generator) fillFields(sd *structDecl, at aggregate) {
+	fields, reason := g.mapFields(at)
+	sd.fields = fields
+	if reason != "" {
+		sd.note = note{noteOpaque, sd.cname, reason}
+	}
 }
 
 // constKey returns the map key of a const twin. The base type holds the plain
@@ -401,25 +432,29 @@ type aggregate interface {
 	FieldByIndex(i int) *cc.Field
 }
 
-func (g *generator) mapFields(at aggregate) []fieldDecl {
+// mapFields maps the fields of a struct or union. A field it cannot map makes
+// the whole type opaque: the So side keeps the C layout only as long as no
+// field lies about it. reason says why the type is opaque, and is empty when
+// the fields are complete, or when the C type is incomplete and has no fields
+// to map in the first place.
+func (g *generator) mapFields(at aggregate) (fields []fieldDecl, reason string) {
 	if at.IsIncomplete() {
-		return nil
+		return nil, ""
 	}
 
 	n := at.NumFields()
-	var fields []fieldDecl
 	for i := range n {
 		f := at.FieldByIndex(i)
 		if f.IsBitfield() {
-			return nil // opaque
+			return nil, fmt.Sprintf("field %s is a bitfield", f.Name())
 		}
 		cname := f.Name()
 		if cname == "" {
-			return nil // anonymous field - opaque
+			return nil, "has an unnamed field"
 		}
 		goType := g.mapType(f.Type())
 		if goType == "" {
-			return nil // unmappable - opaque
+			return nil, fieldReason(f)
 		}
 		name := g.rename.name(cname)
 		if goReserved[name] {
@@ -428,7 +463,28 @@ func (g *generator) mapFields(at aggregate) []fieldDecl {
 		}
 		fields = append(fields, fieldDecl{name: name, cname: cname, typ: goType})
 	}
-	return fields
+	return fields, ""
+}
+
+// fieldReason says why a field type could not be mapped. A struct or union
+// declared inside the field has no name to refer to it by, which is the common
+// case; anything else is reported as it is.
+func fieldReason(f *cc.Field) string {
+	kind := ""
+	switch t := f.Type().(type) {
+	case *cc.StructType:
+		if aggregateName(t.Typedef(), t.Tag()) == "" {
+			kind = "struct"
+		}
+	case *cc.UnionType:
+		if aggregateName(t.Typedef(), t.Tag()) == "" {
+			kind = "union"
+		}
+	}
+	if kind != "" {
+		return fmt.Sprintf("field %s has an anonymous %s type", f.Name(), kind)
+	}
+	return fmt.Sprintf("field %s has an unmappable type", f.Name())
 }
 
 func (g *generator) addEnumConsts(et *cc.EnumType) {
@@ -440,17 +496,16 @@ func (g *generator) addEnumConsts(et *cc.EnumType) {
 		if _, exists := g.consts[name]; exists {
 			continue
 		}
-		val := e.Value()
-		valStr := formatValue(val)
-		if valStr == "" {
-			continue
-		}
-		g.consts[name] = constDecl{
+		cd := constDecl{
 			name:  g.rename.name(name),
 			cname: name,
-			value: valStr,
+			value: formatValue(e.Value()),
 			order: g.nextOrder(),
 		}
+		if cd.value == "" {
+			cd.note = note{noteSkipped, name, "the value is not an integer or a string"}
+		}
+		g.consts[name] = cd
 	}
 }
 
@@ -475,11 +530,14 @@ func (g *generator) addFunc(name string, ft *cc.FunctionType) {
 		return
 	}
 
-	params := g.mapParams(ft)
+	params, guessed := g.mapParams(ft)
 	result := ""
 	rt := ft.Result()
 	if rt != nil && rt.Kind() != cc.Void {
 		result = g.mapType(rt)
+		if result == "" {
+			guessed = append(guessed, "the result type is unmappable, so the function returns nothing")
+		}
 	}
 
 	g.funcs[name] = &funcDecl{
@@ -488,17 +546,28 @@ func (g *generator) addFunc(name string, ft *cc.FunctionType) {
 		params:   params,
 		result:   result,
 		variadic: ft.IsVariadic(),
+		note:     guessNote(name, guessed),
 		order:    g.nextOrder(),
 	}
 }
 
-func (g *generator) mapParams(ft *cc.FunctionType) []paramDecl {
+// guessNote returns the note for a function sobind could not map exactly, or
+// an empty note when there is nothing to report.
+func guessNote(name string, reasons []string) note {
+	if len(reasons) == 0 {
+		return note{}
+	}
+	return note{noteGuessed, name, strings.Join(reasons, "; ")}
+}
+
+// mapParams maps the parameters of a function. guessed lists the parameters
+// sobind could not map, which fall back to the any type.
+func (g *generator) mapParams(ft *cc.FunctionType) (params []paramDecl, guessed []string) {
 	ccParams := ft.Parameters()
 	if len(ccParams) == 1 && ccParams[0].Type().Kind() == cc.Void {
-		return nil
+		return nil, nil
 	}
 
-	var params []paramDecl
 	for i, p := range ccParams {
 		name := p.Name()
 		if name == "" {
@@ -510,6 +579,7 @@ func (g *generator) mapParams(ft *cc.FunctionType) []paramDecl {
 		goType := g.mapType(p.Type())
 		if goType == "" {
 			goType = "any"
+			guessed = append(guessed, fmt.Sprintf("param %s has an unmappable type, mapped to any", name))
 		}
 		// Only direct function params get the string conversion;
 		// nested pointers (const char**) stay as **c.ConstChar.
@@ -518,7 +588,7 @@ func (g *generator) mapParams(ft *cc.FunctionType) []paramDecl {
 		}
 		params = append(params, paramDecl{name: name, typ: goType})
 	}
-	return params
+	return params, guessed
 }
 
 func (g *generator) walkFuncDef(fd *cc.FunctionDefinition) {
@@ -569,13 +639,13 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 			continue
 		}
 
-		kind, value, note := macroValue(m, macros)
+		kind, value, reason := macroValue(m, macros)
 		switch {
-		case note != "":
+		case reason != "":
 			g.consts[name] = constDecl{
 				name:  g.rename.name(name),
 				cname: name,
-				note:  note,
+				note:  note{noteSkipped, name, reason},
 				order: g.nextOrder(),
 			}
 		case kind == macroString:
@@ -659,6 +729,36 @@ func (g *generator) checkNames() error {
 	return fmt.Errorf("C names collide; copy these into a -rename file and edit the So names apart:%s", buf.String())
 }
 
+// notes returns the notes of every declaration, in header order.
+func (g *generator) notes() []note {
+	var all []note
+	for _, t := range sorted(g.funcTypes) {
+		all = append(all, t.note)
+	}
+	for _, s := range sorted(g.structs) {
+		all = append(all, s.note)
+	}
+	for _, c := range sorted(g.consts) {
+		all = append(all, c.note)
+	}
+	for _, v := range sorted(g.vars) {
+		all = append(all, v.note)
+	}
+	for _, f := range sorted(g.funcs) {
+		all = append(all, f.note)
+	}
+	return slices.DeleteFunc(all, func(n note) bool { return !n.isSet() })
+}
+
+// emitNote writes the note of a declaration, if it has one.
+func emitNote(buf *strings.Builder, n note) {
+	if !n.isSet() {
+		return
+	}
+	buf.WriteString(n.String())
+	buf.WriteString("\n")
+}
+
 func (g *generator) emit() []byte {
 	var buf strings.Builder
 	g.emitHeader(&buf)
@@ -672,7 +772,12 @@ func (g *generator) emit() []byte {
 
 func (g *generator) emitHeader(buf *strings.Builder) {
 	buf.WriteString(`// Code generated by "so bind"; DO NOT EDIT.`)
-	buf.WriteString("\n\n")
+	buf.WriteString("\n")
+	if summary := noteSummary(g.notes()); summary != "" {
+		buf.WriteString(summary)
+		buf.WriteString("\n")
+	}
+	buf.WriteString("\n")
 	buf.WriteString("package ")
 	buf.WriteString(g.opts.Package)
 	buf.WriteString("\n\n")
@@ -684,6 +789,11 @@ func (g *generator) emitHeader(buf *strings.Builder) {
 
 func (g *generator) emitFuncTypes(buf *strings.Builder) {
 	for _, t := range sorted(g.funcTypes) {
+		if t.sig == "" {
+			buf.WriteString("\n")
+			emitNote(buf, t.note)
+			continue
+		}
 		buf.WriteString("\ntype ")
 		buf.WriteString(t.name)
 		buf.WriteString(" ")
@@ -694,7 +804,9 @@ func (g *generator) emitFuncTypes(buf *strings.Builder) {
 
 func (g *generator) emitStructs(buf *strings.Builder) {
 	for _, s := range sorted(g.structs) {
-		buf.WriteString("\n//so:extern ")
+		buf.WriteString("\n")
+		emitNote(buf, s.note)
+		buf.WriteString("//so:extern ")
 		buf.WriteString(s.cname)
 		buf.WriteString("\ntype ")
 		buf.WriteString(s.name)
@@ -719,11 +831,8 @@ func (g *generator) emitStructs(buf *strings.Builder) {
 func (g *generator) emitConsts(buf *strings.Builder) {
 	for _, c := range sorted(g.consts) {
 		if c.value == "" {
-			buf.WriteString("\n// ")
-			buf.WriteString(c.cname)
-			buf.WriteString(": ")
-			buf.WriteString(c.note)
 			buf.WriteString("\n")
+			emitNote(buf, c.note)
 			continue
 		}
 		buf.WriteString("\n//so:extern ")
@@ -738,6 +847,11 @@ func (g *generator) emitConsts(buf *strings.Builder) {
 
 func (g *generator) emitVars(buf *strings.Builder) {
 	for _, v := range sorted(g.vars) {
+		if v.typ == "" {
+			buf.WriteString("\n")
+			emitNote(buf, v.note)
+			continue
+		}
 		buf.WriteString("\n//so:extern ")
 		buf.WriteString(v.cname)
 		buf.WriteString("\nvar ")
@@ -754,7 +868,9 @@ func (g *generator) emitVars(buf *strings.Builder) {
 
 func (g *generator) emitFuncs(buf *strings.Builder) {
 	for _, f := range sorted(g.funcs) {
-		buf.WriteString("\n//so:extern ")
+		buf.WriteString("\n")
+		emitNote(buf, f.note)
+		buf.WriteString("//so:extern ")
 		buf.WriteString(f.cname)
 		buf.WriteString("\nfunc ")
 		buf.WriteString(f.name)

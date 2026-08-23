@@ -82,7 +82,8 @@ func (g *generator) mapType(t cc.Type) string {
 	case cc.Union:
 		return g.mapUnionType(t.(*cc.UnionType))
 	case cc.Function:
-		return g.mapFuncPtrType(t.(*cc.FunctionType))
+		typ, _ := g.mapFuncPtrType(t.(*cc.FunctionType))
+		return typ
 	case cc.Array:
 		return g.mapArrayType(t.(*cc.ArrayType))
 	default:
@@ -116,7 +117,8 @@ func (g *generator) mapPointerType(pt *cc.PointerType) string {
 	if elem.Kind() == cc.Function {
 		ft, ok := elem.(*cc.FunctionType)
 		if ok {
-			return g.mapFuncPtrType(ft)
+			typ, _ := g.mapFuncPtrType(ft)
+			return typ
 		}
 	}
 	inner := g.mapType(elem)
@@ -146,16 +148,27 @@ func (g *generator) mapUnionType(ut *cc.UnionType) string {
 	return g.rename.name(name)
 }
 
-func (g *generator) mapFuncPtrType(ft *cc.FunctionType) string {
-	// Build signature string for deduplication.
+// mapFuncPtrType maps a C function pointer type to a Go function type. Unlike
+// a plain function, a callback cannot fall back to the any type: C calls it
+// through the signature it declares, so a parameter that does not match
+// corrupts the call. A signature with a part sobind cannot map is unmappable as
+// a whole, and reason says which part.
+func (g *generator) mapFuncPtrType(ft *cc.FunctionType) (typ, reason string) {
 	var sig strings.Builder
 	sig.WriteString("func(")
 	params := ft.Parameters()
+	if len(params) == 1 && params[0].Type().Kind() == cc.Void {
+		params = nil
+	}
 	for i, p := range params {
 		if i > 0 {
 			sig.WriteString(", ")
 		}
-		sig.WriteString(g.mapConstType(p.Type()))
+		goType := g.mapConstType(p.Type())
+		if goType == "" {
+			return "", fmt.Sprintf("param %s has an unmappable type", paramName(p, i))
+		}
+		sig.WriteString(goType)
 	}
 	if ft.IsVariadic() {
 		if len(params) > 0 {
@@ -166,10 +179,23 @@ func (g *generator) mapFuncPtrType(ft *cc.FunctionType) string {
 	sig.WriteString(")")
 	rt := ft.Result()
 	if rt != nil && rt.Kind() != cc.Void {
+		goType := g.mapType(rt)
+		if goType == "" {
+			return "", "the result type is unmappable"
+		}
 		sig.WriteString(" ")
-		sig.WriteString(g.mapType(rt))
+		sig.WriteString(goType)
 	}
-	return sig.String()
+	return sig.String(), ""
+}
+
+// paramName returns the name of a parameter, or its position when C declares
+// it without one.
+func paramName(p *cc.Parameter, i int) string {
+	if name := p.Name(); name != "" {
+		return name
+	}
+	return fmt.Sprintf("%d", i+1)
 }
 
 // mapConstType maps a parameter type of a C function pointer. C compares two

@@ -33,10 +33,10 @@ var constPunct = map[rune]bool{
 // macroValue reports what sobind emits for an object-like macro. kind selects
 // the declaration: a numeric macro is a So constant and value is the Go
 // constant expression, a string macro is a C string variable and value is the
-// C text of the literals. note is a message for the reader when the macro
-// names a value sobind cannot express. Everything is empty for a macro that is
-// not a constant at all (#define API extern).
-func macroValue(m *cc.Macro, macros map[string]*cc.Macro) (kind macroKind, value, note string) {
+// C text of the literals. reason says why sobind cannot express the value of
+// the macro. Everything is empty for a macro that is not a constant at all
+// (#define API extern).
+func macroValue(m *cc.Macro, macros map[string]*cc.Macro) (kind macroKind, value, reason string) {
 	kind = classifyMacro(m, macros, map[string]bool{})
 	switch kind {
 	case macroInt:
@@ -48,15 +48,15 @@ func macroValue(m *cc.Macro, macros map[string]*cc.Macro) (kind macroKind, value
 		if text := floatText(m, macros); text != "" {
 			return kind, text, ""
 		}
-		return kind, "", "float expression, define the constant manually"
+		return kind, "", "the value is a float expression"
 	case macroString:
 		if text := stringText(m, macros); text != "" {
 			return kind, text, ""
 		}
-		return kind, "", "string expression, define the constant manually"
+		return kind, "", "the value is a string expression"
 	case macroWide:
 		// so/c has no wchar_t type to point at.
-		return kind, "", "wide string, define the constant manually"
+		return kind, "", "the value is a wide string"
 	}
 	return macroOther, "", ""
 }

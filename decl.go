@@ -2,8 +2,10 @@ package main
 
 import (
 	"cmp"
+	"fmt"
 	"maps"
 	"slices"
+	"strings"
 )
 
 // ordered is a declaration that knows its position in the header.
@@ -36,11 +38,13 @@ func symbols[T interface {
 	return out
 }
 
-// funcTypeDecl is a C function pointer typedef.
+// funcTypeDecl is a C function pointer typedef. An empty sig means the
+// signature could not be expressed in So, and note says why.
 type funcTypeDecl struct {
 	name  string
 	cname string
 	sig   string // Go function type, "func(c.Int) c.Int"
+	note  note
 	order int
 }
 
@@ -53,6 +57,7 @@ type structDecl struct {
 	name   string
 	cname  string      // C name, "struct Foo" for a type with no typedef
 	fields []fieldDecl // nil means opaque
+	note   note
 	order  int
 }
 
@@ -71,7 +76,7 @@ type constDecl struct {
 	name  string
 	cname string
 	value string
-	note  string
+	note  note
 	order int
 }
 
@@ -84,6 +89,7 @@ type funcDecl struct {
 	params   []paramDecl
 	result   string
 	variadic bool
+	note     note
 	order    int
 }
 
@@ -97,14 +103,61 @@ type paramDecl struct {
 
 // varDecl is a C global variable, or an object-like macro that expands to a
 // string literal. A macro has no So type to be a constant of, so it becomes a
-// variable of the C string type the literal really has.
+// variable of the C string type the literal really has. An empty type means the
+// variable could not be expressed in So, and note says why.
 type varDecl struct {
 	name    string
 	cname   string
 	typ     string
 	comment string // the C text of a string macro
+	note    note
 	order   int
 }
 
 func (d varDecl) ordinal() int            { return d.order }
 func (d varDecl) names() (string, string) { return d.cname, d.name }
+
+// noteVerb says what sobind did with a C declaration it could not map.
+type noteVerb string
+
+const (
+	noteOpaque  noteVerb = "opaque"  // the type is emitted without its fields
+	noteSkipped noteVerb = "skipped" // nothing is emitted for the C symbol
+	noteGuessed noteVerb = "guessed" // the declaration is emitted, but not as C declares it
+)
+
+// note explains a C declaration sobind could not map. Every note is emitted as
+// a single line, with a "sobind:" prefix.
+type note struct {
+	verb   noteVerb
+	target string // C name
+	reason string
+}
+
+// isSet reports whether the declaration has a note.
+func (n note) isSet() bool {
+	return n.verb != ""
+}
+
+func (n note) String() string {
+	return fmt.Sprintf("// sobind: %s %s, %s", n.verb, n.target, n.reason)
+}
+
+// noteSummary is the line under the file header that counts the declarations
+// which may need manual work. It is empty when there are no notes.
+func noteSummary(notes []note) string {
+	if len(notes) == 0 {
+		return ""
+	}
+	count := map[noteVerb]int{}
+	for _, n := range notes {
+		count[n.verb]++
+	}
+	var parts []string
+	for _, verb := range []noteVerb{noteOpaque, noteSkipped, noteGuessed} {
+		if count[verb] > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", count[verb], verb))
+		}
+	}
+	return fmt.Sprintf("// sobind: %s", strings.Join(parts, ", "))
+}
