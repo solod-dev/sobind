@@ -139,6 +139,16 @@ func underDir(dir, path string) bool {
 	return path == dir || strings.HasPrefix(path, dir+string(filepath.Separator))
 }
 
+// isAggregateAllowed reports whether a struct or union belongs to the binding.
+// Types declared by the allowed headers are written out in full, types from
+// other headers (like FILE from stdio.h) stay opaque.
+func (g *generator) isAggregateAllowed(td *cc.Declarator, tag cc.Token) bool {
+	if td != nil && g.isAllowed(td.Position().Filename) {
+		return true
+	}
+	return tag.SrcStr() != "" && g.isAllowed(tag.Position().Filename)
+}
+
 func (g *generator) walkAST(ast *cc.AST) {
 	for tu := ast.TranslationUnit; tu != nil; tu = tu.TranslationUnit {
 		ed := tu.ExternalDeclaration
@@ -302,7 +312,7 @@ func (g *generator) addStruct(name string, st *cc.StructType) {
 		order: g.nextOrder(),
 	}
 	g.structs[name] = sd
-	if st.HasFlexibleArrayMember() {
+	if st.HasFlexibleArrayMember() || !g.isAggregateAllowed(st.Typedef(), st.Tag()) {
 		return // opaque
 	}
 	sd.fields = g.mapFields(st)
@@ -319,6 +329,9 @@ func (g *generator) addUnion(name string, ut *cc.UnionType) {
 		order: g.nextOrder(),
 	}
 	g.structs[name] = sd
+	if !g.isAggregateAllowed(ut.Typedef(), ut.Tag()) {
+		return // opaque
+	}
 	sd.fields = g.mapFields(ut)
 }
 
@@ -339,7 +352,7 @@ func (g *generator) addConstStruct(name string, st *cc.StructType) string {
 		order: g.nextOrder(),
 	}
 	g.structs[key] = sd
-	if st.HasFlexibleArrayMember() {
+	if st.HasFlexibleArrayMember() || !g.isAggregateAllowed(st.Typedef(), st.Tag()) {
 		return sd.name // opaque
 	}
 	sd.fields = g.mapFields(st)
@@ -359,6 +372,9 @@ func (g *generator) addConstUnion(name string, ut *cc.UnionType) string {
 		order: g.nextOrder(),
 	}
 	g.structs[key] = sd
+	if !g.isAggregateAllowed(ut.Typedef(), ut.Tag()) {
+		return sd.name // opaque
+	}
 	sd.fields = g.mapFields(ut)
 	return sd.name
 }

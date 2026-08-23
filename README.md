@@ -78,13 +78,13 @@ Combine `-style=go` with `-strip=<prefix>` to remove the C name prefix:
 
 Using name-modifying flags like `-style` and `-strip` can lead to name collisions.
 
-For example, `libuv.h` defines a `UV_FILE` macro. With `-strip=uv_` it maps to `FILE` and collides with the `FILE` typedef from `stdio.h`.
+For example, `sqlite3.h` defines symbols `sqlite3_blob` and `SQLITE_BLOB`. With `-strip=sqlite3_ -strip=sqlite -style=go` both map to `Blob` .
 
-To solve such collisions, use the `-rename=<filename>` flag. The file maps a C name to a So name, one pair per line:
+To solve such collisions, either change the style, drop one of the `-strip`, or use the `-rename=<filename>` flag. The rename file maps C names to So names, one pair per line:
 
 ```
-# The symbol will be emitted as UvFile.
-UV_FILE  UvFile
+sqlite3_blob  Blob
+SQLITE_BLOB   SQLITE_BLOB
 ```
 
 A line with a C name without a So name drops the symbol instead:
