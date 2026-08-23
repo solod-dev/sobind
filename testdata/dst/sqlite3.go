@@ -20,7 +20,7 @@ type sqlite3_io_methods struct {
 	iVersion c.Int
 	xClose func(*sqlite3_file) c.Int
 	xRead func(*sqlite3_file, any, c.Int, c.LongLong) c.Int
-	xWrite func(*sqlite3_file, any, c.Int, c.LongLong) c.Int
+	xWrite func(*sqlite3_file, *c.ConstVoid, c.Int, c.LongLong) c.Int
 	xTruncate func(*sqlite3_file, c.LongLong) c.Int
 	xSync func(*sqlite3_file, c.Int) c.Int
 	xFileSize func(*sqlite3_file, *c.LongLong) c.Int

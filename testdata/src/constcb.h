@@ -26,6 +26,9 @@ typedef void (*cb_recv)(const cb_buf *buf, int flags);
 // A const char pointer keeps its own type, and a plain pointer is unchanged.
 typedef void (*cb_log)(const char *msg, cb_buf *out);
 
+// A const void pointer keeps the const as well.
+typedef int (*cb_cmp)(const void *a, const void *b);
+
 // An array parameter decays to a pointer.
 typedef void (*cb_write)(const cb_buf bufs[], unsigned int nbufs);
 

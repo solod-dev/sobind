@@ -175,9 +175,10 @@ func (g *generator) mapFuncPtrType(ft *cc.FunctionType) string {
 // mapConstType maps a parameter type of a C function pointer. C compares two
 // function types parameter by parameter, and a pointer to a const type is not
 // compatible with a pointer to the same type without const. A So function
-// passed as the callback must keep the const, so a pointer to a const struct or
-// union maps to a const twin type. Every other type maps as usual: a top-level
-// const on a parameter does not affect C type compatibility.
+// passed as the callback must keep the const, so a pointer to const void maps
+// to *c.ConstVoid, and a pointer to a const struct or union maps to a const twin
+// type. Every other type maps as usual: a top-level const on a parameter does
+// not affect C type compatibility.
 func (g *generator) mapConstType(t cc.Type) string {
 	pt, ok := t.(*cc.PointerType)
 	if !ok {
@@ -186,6 +187,9 @@ func (g *generator) mapConstType(t cc.Type) string {
 	elem := pt.Elem()
 	if !elem.Attributes().IsConst() {
 		return g.mapType(t)
+	}
+	if elem.Kind() == cc.Void {
+		return "*c.ConstVoid"
 	}
 
 	var twin string

@@ -13,6 +13,8 @@ type cb_recv func(*const_cb_buf, c.Int)
 
 type cb_log func(*c.ConstChar, *cb_buf)
 
+type cb_cmp func(*c.ConstVoid, *c.ConstVoid) c.Int
+
 type cb_write func(*const_cb_buf, c.UInt)
 
 //so:extern cb_buf

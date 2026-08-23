@@ -7,7 +7,7 @@ var _ c.Char
 
 type on_error func(c.Int, *c.ConstChar)
 
-type compare func(any, any) c.Int
+type compare func(*c.ConstVoid, *c.ConstVoid) c.Int
 
 //so:extern reset
 func reset()
