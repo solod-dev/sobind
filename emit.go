@@ -222,7 +222,7 @@ func (g *generator) walkDeclaration(decl *cc.Declaration) {
 
 		t := d.Type()
 		if ft, ok := t.(*cc.FunctionType); ok {
-			g.addFunc(name, ft)
+			g.addFunc(name, ft, false)
 		} else {
 			g.addVar(name, t)
 		}
@@ -302,7 +302,8 @@ func (g *generator) walkTypedef(d *cc.Declarator) {
 						order: g.nextOrder(),
 					}
 					if reason != "" {
-						td.note = note{noteSkipped, name, reason}
+						n := note{noteSkipped, name, reason}
+						td.notes = append(td.notes, n)
 					}
 					g.funcTypes[name] = td
 				}
@@ -327,7 +328,8 @@ func (g *generator) addVar(name string, t cc.Type) {
 		order: g.nextOrder(),
 	}
 	if vd.typ == "" {
-		vd.note = note{noteSkipped, name, "the type is unmappable"}
+		n := note{noteSkipped, name, "the type is unmappable"}
+		vd.notes = append(vd.notes, n)
 	}
 	g.vars[name] = vd
 }
@@ -404,9 +406,11 @@ func (g *generator) addConstUnion(name string, ut *cc.UnionType) string {
 func (g *generator) fillStruct(sd *structDecl, st *cc.StructType) {
 	switch {
 	case !g.isAggregateAllowed(st.Typedef(), st.Tag()):
-		sd.note = note{noteOpaque, sd.cname, "declared outside the binding"}
+		n := note{noteOpaque, sd.cname, "declared outside the binding"}
+		sd.notes = append(sd.notes, n)
 	case st.HasFlexibleArrayMember():
-		sd.note = note{noteOpaque, sd.cname, "has a flexible array member"}
+		n := note{noteOpaque, sd.cname, "has a flexible array member"}
+		sd.notes = append(sd.notes, n)
 	default:
 		g.fillFields(sd, st)
 	}
@@ -416,7 +420,8 @@ func (g *generator) fillStruct(sd *structDecl, st *cc.StructType) {
 // or leaves sd opaque with a note saying why.
 func (g *generator) fillUnion(sd *structDecl, ut *cc.UnionType) {
 	if !g.isAggregateAllowed(ut.Typedef(), ut.Tag()) {
-		sd.note = note{noteOpaque, sd.cname, "declared outside the binding"}
+		n := note{noteOpaque, sd.cname, "declared outside the binding"}
+		sd.notes = append(sd.notes, n)
 		return
 	}
 	g.fillFields(sd, ut)
@@ -426,7 +431,8 @@ func (g *generator) fillFields(sd *structDecl, at aggregate) {
 	fields, reason := g.mapFields(at)
 	sd.fields = fields
 	if reason != "" {
-		sd.note = note{noteOpaque, sd.cname, reason}
+		n := note{noteOpaque, sd.cname, reason}
+		sd.notes = append(sd.notes, n)
 	}
 }
 
@@ -523,7 +529,8 @@ func (g *generator) addEnumConsts(et *cc.EnumType) {
 			order: g.nextOrder(),
 		}
 		if cd.value == "" {
-			cd.note = note{noteSkipped, name, "the value is not an integer or a string"}
+			n := note{noteSkipped, name, "the value is not an integer or a string"}
+			cd.notes = append(cd.notes, n)
 		}
 		g.consts[name] = cd
 	}
@@ -542,7 +549,7 @@ func formatValue(v cc.Value) string {
 	}
 }
 
-func (g *generator) addFunc(name string, ft *cc.FunctionType) {
+func (g *generator) addFunc(name string, ft *cc.FunctionType, inline bool) {
 	if _, exists := g.funcs[name]; exists {
 		return
 	}
@@ -566,18 +573,25 @@ func (g *generator) addFunc(name string, ft *cc.FunctionType) {
 		params:   params,
 		result:   result,
 		variadic: ft.IsVariadic(),
-		note:     guessNote(name, guessed),
+		notes:    funcNotes(name, inline, guessed),
 		order:    g.nextOrder(),
 	}
 }
 
-// guessNote returns the note for a function sobind could not map exactly, or
-// an empty note when there is nothing to report.
-func guessNote(name string, reasons []string) note {
-	if len(reasons) == 0 {
-		return note{}
+// funcNotes returns the notes of a function: an inlined note when the header
+// defines it with the inline specifier alone, and a guessed note when sobind
+// could not map the signature exactly.
+func funcNotes(name string, inline bool, guessed []string) []note {
+	var notes []note
+	if inline {
+		n := note{noteInlined, name, "the symbol has to come from the linked library"}
+		notes = append(notes, n)
 	}
-	return note{noteGuessed, name, strings.Join(reasons, "; ")}
+	if len(guessed) > 0 {
+		n := note{noteGuessed, name, strings.Join(guessed, "; ")}
+		notes = append(notes, n)
+	}
+	return notes
 }
 
 // mapParams maps the parameters of a function. guessed lists the parameters
@@ -616,9 +630,6 @@ func (g *generator) walkFuncDef(fd *cc.FunctionDefinition) {
 		return
 	}
 	d := fd.Declarator
-	if d.IsStatic() || d.IsInline() {
-		return
-	}
 	pos := d.Position().Filename
 	if !g.isAllowed(pos) {
 		return
@@ -633,7 +644,13 @@ func (g *generator) walkFuncDef(fd *cc.FunctionDefinition) {
 	if !ok {
 		return
 	}
-	g.addFunc(name, ft)
+
+	// A definition in a header is callable from every file that includes the
+	// header, except for a plain inline one: it provides no symbol of its own,
+	// so the linked library has to carry one. static and extern definitions
+	// both provide a symbol, so only inline alone is worth a note.
+	inline := d.IsInline() && !d.IsStatic() && !d.IsExtern()
+	g.addFunc(name, ft, inline)
 }
 
 func (g *generator) walkMacros(macros map[string]*cc.Macro) {
@@ -665,7 +682,7 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 			g.consts[name] = constDecl{
 				name:  g.rename.name(name),
 				cname: name,
-				note:  note{noteSkipped, name, reason},
+				notes: []note{{noteSkipped, name, reason}},
 				order: g.nextOrder(),
 			}
 		case kind == macroString:
@@ -753,30 +770,21 @@ func (g *generator) checkNames() error {
 func (g *generator) notes() []note {
 	var all []note
 	for _, t := range sorted(g.funcTypes) {
-		all = append(all, t.note)
+		all = append(all, t.notes...)
 	}
 	for _, s := range sorted(g.structs) {
-		all = append(all, s.note)
+		all = append(all, s.notes...)
 	}
 	for _, c := range sorted(g.consts) {
-		all = append(all, c.note)
+		all = append(all, c.notes...)
 	}
 	for _, v := range sorted(g.vars) {
-		all = append(all, v.note)
+		all = append(all, v.notes...)
 	}
 	for _, f := range sorted(g.funcs) {
-		all = append(all, f.note)
+		all = append(all, f.notes...)
 	}
-	return slices.DeleteFunc(all, func(n note) bool { return !n.isSet() })
-}
-
-// emitNote writes the note of a declaration, if it has one.
-func emitNote(buf *strings.Builder, n note) {
-	if !n.isSet() {
-		return
-	}
-	buf.WriteString(n.String())
-	buf.WriteString("\n")
+	return all
 }
 
 func (g *generator) emit() []byte {
@@ -811,7 +819,7 @@ func (g *generator) emitFuncTypes(buf *strings.Builder) {
 	for _, t := range sorted(g.funcTypes) {
 		if t.sig == "" {
 			buf.WriteString("\n")
-			emitNote(buf, t.note)
+			emitNotes(buf, t.notes)
 			continue
 		}
 		buf.WriteString("\ntype ")
@@ -825,7 +833,7 @@ func (g *generator) emitFuncTypes(buf *strings.Builder) {
 func (g *generator) emitStructs(buf *strings.Builder) {
 	for _, s := range sorted(g.structs) {
 		buf.WriteString("\n")
-		emitNote(buf, s.note)
+		emitNotes(buf, s.notes)
 		buf.WriteString("//so:extern ")
 		buf.WriteString(s.cname)
 		buf.WriteString("\ntype ")
@@ -852,7 +860,7 @@ func (g *generator) emitConsts(buf *strings.Builder) {
 	for _, c := range sorted(g.consts) {
 		if c.value == "" {
 			buf.WriteString("\n")
-			emitNote(buf, c.note)
+			emitNotes(buf, c.notes)
 			continue
 		}
 		buf.WriteString("\n//so:extern ")
@@ -869,7 +877,7 @@ func (g *generator) emitVars(buf *strings.Builder) {
 	for _, v := range sorted(g.vars) {
 		if v.typ == "" {
 			buf.WriteString("\n")
-			emitNote(buf, v.note)
+			emitNotes(buf, v.notes)
 			continue
 		}
 		buf.WriteString("\n//so:extern ")
@@ -889,7 +897,7 @@ func (g *generator) emitVars(buf *strings.Builder) {
 func (g *generator) emitFuncs(buf *strings.Builder) {
 	for _, f := range sorted(g.funcs) {
 		buf.WriteString("\n")
-		emitNote(buf, f.note)
+		emitNotes(buf, f.notes)
 		buf.WriteString("//so:extern ")
 		buf.WriteString(f.cname)
 		buf.WriteString("\nfunc ")
@@ -951,4 +959,12 @@ func (g *generator) emitFuncBody(buf *strings.Builder, f *funcDecl) {
 		buf.WriteString("\n")
 	}
 	buf.WriteString("}\n")
+}
+
+// emitNotes writes the notes of a declaration, one per line.
+func emitNotes(buf *strings.Builder, notes []note) {
+	for _, n := range notes {
+		buf.WriteString(n.String())
+		buf.WriteString("\n")
+	}
 }

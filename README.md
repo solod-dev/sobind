@@ -122,6 +122,7 @@ Every note is a single line of the form `// sobind: <verb> <C name>, <reason>`, 
 - `opaque` — the type is emitted without its fields. C still owns the layout, so the binding is safe, but the So side cannot read the fields.
 - `skipped` — nothing is emitted for the C symbol. Declare it by hand if you need it.
 - `guessed` — the declaration is emitted, but not as C declares it. Check it before using it.
+- `inlined` — the function is emitted as C declares it, but the header defines it with the `inline` specifier alone (without `static` or `extern`). Such a definition provides no symbol of its own, so the call links only if the library carries one.
 
 ## Examples
 
