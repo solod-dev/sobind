@@ -19,7 +19,7 @@ type Options struct {
 	Body     bool              // emit function bodies instead of declarations only
 	Style    nameStyle         // symbol naming style
 	Strip    []string          // C name prefixes to remove, Go naming style only
-	Rename   map[string]string // C name to So name, overrides the style; empty So name drops the symbol
+	Rename   map[string]string // C name to Solod name, overrides the style; empty Solod name drops the symbol
 }
 
 // Emit parses C header files and returns a Go source file with so:extern declarations.
@@ -363,9 +363,9 @@ func (g *generator) addUnion(name string, ut *cc.UnionType) {
 	g.fillUnion(sd, ut)
 }
 
-// addConstStruct registers the const twin of a struct and returns its So name.
+// addConstStruct registers the const twin of a struct and returns its Solod name.
 // The twin repeats the fields of the base struct under the C name with a const
-// modifier. A So function passed as a C callback needs the twin to keep the
+// modifier. A Solod function passed as a C callback needs the twin to keep the
 // const of a pointer parameter.
 func (g *generator) addConstStruct(name string, st *cc.StructType) string {
 	key := constKey(name)
@@ -384,7 +384,7 @@ func (g *generator) addConstStruct(name string, st *cc.StructType) string {
 	return sd.name
 }
 
-// addConstUnion registers the const twin of a union and returns its So name.
+// addConstUnion registers the const twin of a union and returns its Solod name.
 func (g *generator) addConstUnion(name string, ut *cc.UnionType) string {
 	key := constKey(name)
 	if sd, exists := g.structs[key]; exists {
@@ -459,7 +459,7 @@ type aggregate interface {
 }
 
 // mapFields maps the fields of a struct or union. A field it cannot map makes
-// the whole type opaque: the So side keeps the C layout only as long as no
+// the whole type opaque: the Solod side keeps the C layout only as long as no
 // field lies about it. reason says why the type is opaque, and is empty when
 // the fields are complete, or when the C type is incomplete and has no fields
 // to map in the first place.
@@ -686,7 +686,7 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 				order: g.nextOrder(),
 			}
 		case kind == macroString:
-			// A string literal is a char array in C, not a So string, so the
+			// A string literal is a char array in C, not a Solod string, so the
 			// macro names a C string pointer.
 			g.vars[name] = &varDecl{
 				name:    g.rename.name(name),
@@ -720,7 +720,7 @@ func (g *generator) dropExcluded() {
 	}
 }
 
-// checkNames reports C symbols that map to one So name.
+// checkNames reports C symbols that map to one Solod name.
 func (g *generator) checkNames() error {
 	var all []symbol
 	all = append(all, symbols(g.funcTypes)...)
@@ -729,7 +729,7 @@ func (g *generator) checkNames() error {
 	all = append(all, symbols(g.vars)...)
 	all = append(all, symbols(g.funcs)...)
 
-	// So name to the C names that map to it, and the So names in first-seen
+	// Solod name to the C names that map to it, and the Solod names in first-seen
 	// order for a stable report.
 	cnames := map[string][]string{}
 	var order []string
@@ -741,7 +741,7 @@ func (g *generator) checkNames() error {
 		cnames[name] = append(cnames[name], cname)
 	}
 
-	// Collect the colliding pairs and the width of the C name column so the So
+	// Collect the colliding pairs and the width of the C name column so the Solod
 	// names line up.
 	type pair struct{ cname, soname string }
 	var pairs []pair
@@ -763,7 +763,7 @@ func (g *generator) checkNames() error {
 	for _, p := range pairs {
 		fmt.Fprintf(&buf, "\n%-*s  %s", width, p.cname, p.soname)
 	}
-	return fmt.Errorf("C names collide; copy these into a -rename file and edit the So names apart:%s", buf.String())
+	return fmt.Errorf("C names collide; copy these into a -rename file and edit the Solod names apart:%s", buf.String())
 }
 
 // notes returns the notes of every declaration, in header order.

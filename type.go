@@ -7,7 +7,7 @@ import (
 	cc "modernc.org/cc/v4"
 )
 
-// fixedWidth maps the fixed-width C typedefs to the So types of the same width.
+// fixedWidth maps the fixed-width C typedefs to the Solod types of the same width.
 var fixedWidth = map[string]string{
 	"int8_t":    "int8",
 	"int16_t":   "int16",
@@ -200,7 +200,7 @@ func paramName(p *cc.Parameter, i int) string {
 
 // mapConstType maps a parameter type of a C function pointer. C compares two
 // function types parameter by parameter, and a pointer to a const type is not
-// compatible with a pointer to the same type without const. A So function
+// compatible with a pointer to the same type without const. A Solod function
 // passed as the callback must keep the const, so a pointer to const void maps
 // to *c.ConstVoid, and a pointer to a const struct or union maps to a const twin
 // type. Every other type maps as usual: a top-level const on a parameter does

@@ -1,6 +1,6 @@
 # sobind
 
-Generates So extern declarations from C header files.
+Generates Solod extern declarations from C header files.
 
 `sobind` parses `.h` files and emits a Go source file with `so:extern` stubs
 for structs, unions, constants, variables, function pointer typedefs, and function declarations.
@@ -36,7 +36,7 @@ Usage:
   -pkg string
     	Go package name (default "main")
   -rename string
-    	file of 'cname soname' lines that set So names by hand
+    	file of 'cname soname' lines that set Solod names by hand
   -scope value
     	directory whose headers are emitted, beyond the named files (repeatable)
   -strip value
@@ -94,14 +94,14 @@ Using name-modifying flags like `-style` and `-strip` can lead to name collision
 
 For example, `sqlite3.h` defines symbols `sqlite3_blob` and `SQLITE_BLOB`. With `-strip=sqlite3_ -strip=sqlite -style=go` both map to `Blob` .
 
-To solve such collisions, either change the style, drop one of the `-strip`, or use the `-rename=<filename>` flag. The rename file maps C names to So names, one pair per line:
+To solve such collisions, either change the style, drop one of the `-strip`, or use the `-rename=<filename>` flag. The rename file maps C names to Solod names, one pair per line:
 
 ```
 sqlite3_blob  Blob
 SQLITE_BLOB   SQLITE_BLOB
 ```
 
-A line with a C name without a So name drops the symbol instead:
+A line with a C name without a Solod name drops the symbol instead:
 
 ```
 # The symbol won't be emitted at all.
@@ -119,7 +119,7 @@ Whenever `sobind` cannot map a C declaration exactly, it writes a note above it,
 
 Every note is a single line of the form `// sobind: <verb> <C name>, <reason>`, so `grep "sobind:"` lists everything in the generated file that may need manual work. The verb says what happened:
 
-- `opaque` — the type is emitted without its fields. C still owns the layout, so the binding is safe, but the So side cannot read the fields.
+- `opaque` — the type is emitted without its fields. C still owns the layout, so the binding is safe, but the Solod side cannot read the fields.
 - `skipped` — nothing is emitted for the C symbol. Declare it by hand if you need it.
 - `guessed` — the declaration is emitted, but not as C declares it. Check it before using it.
 - `inlined` — the function is emitted as C declares it, but the header defines it with the `inline` specifier alone (without `static` or `extern`). Such a definition provides no symbol of its own, so the call links only if the library carries one.

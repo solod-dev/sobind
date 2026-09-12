@@ -9,7 +9,7 @@ import (
 	"unicode/utf8"
 )
 
-// nameStyle selects the So names sobind gives to C symbols.
+// nameStyle selects the Solod names sobind gives to C symbols.
 type nameStyle int
 
 const (
@@ -36,11 +36,11 @@ func parseStyle(s string) (nameStyle, error) {
 	return 0, fmt.Errorf("unknown name style %q, want (c|cap|go)", s)
 }
 
-// renamer maps a C symbol name to the So name of the symbol.
+// renamer maps a C symbol name to the Solod name of the symbol.
 type renamer struct {
 	style    nameStyle
 	strip    []string          // C name prefixes to remove, longest first
-	override map[string]string // C name to So name, verbatim, wins over the style; empty drops the symbol
+	override map[string]string // C name to Solod name, verbatim, wins over the style; empty drops the symbol
 }
 
 func newRenamer(style nameStyle, strip []string, override map[string]string) *renamer {
@@ -50,7 +50,7 @@ func newRenamer(style nameStyle, strip []string, override map[string]string) *re
 	return &renamer{style: style, strip: prefixes, override: override}
 }
 
-// name returns the So name for a C symbol name.
+// name returns the Solod name for a C symbol name.
 func (r *renamer) name(cname string) string {
 	// An override settles names the style cannot tell apart, such as two C
 	// symbols that differ only in case. An empty override marks a dropped
@@ -59,7 +59,7 @@ func (r *renamer) name(cname string) string {
 		return so
 	}
 
-	// Transform the C name to a So name according to the style.
+	// Transform the C name to a Solod name according to the style.
 	switch r.style {
 	case styleC:
 		return cname
@@ -80,7 +80,7 @@ func (r *renamer) name(cname string) string {
 	}
 }
 
-// constName returns the So name for the const twin of a C type. The C style
+// constName returns the Solod name for the const twin of a C type. The C style
 // keeps the lower case C names, so the twin takes a lower case prefix too.
 func (r *renamer) constName(cname string) string {
 	name := r.name(cname)

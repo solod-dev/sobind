@@ -4,7 +4,7 @@
 // parameter cannot fall back to the any type the way a plain function does.
 typedef double _Complex (*transform)(double _Complex z, int n);
 
-// A bitfield has no So equivalent, so the whole type is opaque.
+// A bitfield has no Solod equivalent, so the whole type is opaque.
 struct flags {
 	unsigned int visible : 1;
 	unsigned int width : 15;
@@ -43,5 +43,5 @@ struct blob {
 // An incomplete array has no size either.
 extern const char build_id[];
 
-// _Complex has no So equivalent, in a parameter or in a result.
+// _Complex has no Solod equivalent, in a parameter or in a result.
 double _Complex scale(double _Complex z, int n);

@@ -30,7 +30,7 @@ func bind(args []string) error {
 	styleStr := flags.String("style", "c", "symbol naming: c (keep C names), cap (capitalized), or go (exported CamelCase)")
 	var strip stringList
 	flags.Var(&strip, "strip", "C name prefix to remove (repeatable)")
-	renameFile := flags.String("rename", "", "file of 'cname soname' lines that set So names by hand")
+	renameFile := flags.String("rename", "", "file of 'cname soname' lines that set Solod names by hand")
 
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -88,8 +88,8 @@ func bind(args []string) error {
 }
 
 // parseRenames reads a rename file. A 'cname soname' line gives the C symbol
-// cname the So name soname, verbatim. A 'cname' line on its own drops the
-// symbol, recorded as an empty So name. Blank lines and lines starting with #
+// cname the Solod name soname, verbatim. A 'cname' line on its own drops the
+// symbol, recorded as an empty Solod name. Blank lines and lines starting with #
 // are ignored. An empty path yields a nil map.
 func parseRenames(path string) (map[string]string, error) {
 	if path == "" {

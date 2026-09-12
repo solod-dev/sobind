@@ -31,7 +31,7 @@ var constPunct = map[rune]bool{
 }
 
 // macroValue reports what sobind emits for an object-like macro. kind selects
-// the declaration: a numeric macro is a So constant and value is the Go
+// the declaration: a numeric macro is a Solod constant and value is the Go
 // constant expression, a string macro is a C string variable and value is the
 // C text of the literals. reason says why sobind cannot express the value of
 // the macro. Everything is empty for a macro that is not a constant at all
@@ -161,12 +161,12 @@ func floatText(m *cc.Macro, macros map[string]*cc.Macro) string {
 		return ""
 	}
 
-	// C has a float suffix (0.5f, 1.0L), So infers the type instead.
+	// C has a float suffix (0.5f, 1.0L), Solod infers the type instead.
 	lit := toks[0].SrcStr()
 	if n := len(lit); n > 0 && strings.ContainsRune("fFlL", rune(lit[n-1])) {
 		lit = lit[:n-1]
 	}
-	// Rejects what C accepts and So does not, such as digit separators.
+	// Rejects what C accepts and Solod does not, such as digit separators.
 	if _, err := strconv.ParseFloat(lit, 64); err != nil {
 		return ""
 	}

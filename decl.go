@@ -13,7 +13,7 @@ type ordered interface {
 	ordinal() int
 }
 
-// symbol is a declaration with a C name and a So name.
+// symbol is a declaration with a C name and a Solod name.
 type symbol interface {
 	names() (cname, name string)
 }
@@ -39,7 +39,7 @@ func symbols[T interface {
 }
 
 // funcTypeDecl is a C function pointer typedef. An empty sig means the
-// signature could not be expressed in So, and notes say why.
+// signature could not be expressed in Solod, and notes say why.
 type funcTypeDecl struct {
 	name  string
 	cname string
@@ -71,7 +71,7 @@ type fieldDecl struct {
 }
 
 // constDecl is an enum member or an object-like macro. An empty value means
-// the constant could not be expressed in So, and notes say why.
+// the constant could not be expressed in Solod, and notes say why.
 type constDecl struct {
 	name  string
 	cname string
@@ -102,9 +102,9 @@ type paramDecl struct {
 }
 
 // varDecl is a C global variable, or an object-like macro that expands to a
-// string literal. A macro has no So type to be a constant of, so it becomes a
+// string literal. A macro has no Solod type to be a constant of, so it becomes a
 // variable of the C string type the literal really has. An empty type means the
-// variable could not be expressed in So, and notes say why.
+// variable could not be expressed in Solod, and notes say why.
 type varDecl struct {
 	name    string
 	cname   string

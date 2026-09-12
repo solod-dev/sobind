@@ -73,14 +73,14 @@ func TestBindScope(t *testing.T) {
 }
 
 func TestBindCollision(t *testing.T) {
-	// Check that two C names mapping to one So name fail.
+	// Check that two C names mapping to one Solod name fail.
 	srcPath := filepath.Join("testdata/src", "collide.h")
 	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}}
 	_, err := Emit([]string{srcPath}, opts)
 	if err == nil {
 		t.Fatal("expected a name collision error")
 	}
-	want := "C names collide; copy these into a -rename file and edit the So names apart:" +
+	want := "C names collide; copy these into a -rename file and edit the Solod names apart:" +
 		"\nUV_TIMEOUT  Timeout\nuv_timeout  Timeout"
 	if err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
@@ -88,7 +88,7 @@ func TestBindCollision(t *testing.T) {
 }
 
 func TestBindRename(t *testing.T) {
-	// A rename file gives distinct So names to the two colliding symbols.
+	// A rename file gives distinct Solod names to the two colliding symbols.
 	rename, err := parseRenames(filepath.Join("testdata/src", "collide.rename"))
 	if err != nil {
 		t.Fatal(err)
