@@ -106,6 +106,11 @@ func parseRenames(path string) (map[string]string, error) {
 			continue
 		}
 		fields := strings.Fields(text)
+		// The C name of a struct or union with no typedef takes two fields,
+		// the keyword and the tag. Join them into one name.
+		if len(fields) > 1 && (fields[0] == "struct" || fields[0] == "union") {
+			fields = append([]string{fields[0] + " " + fields[1]}, fields[2:]...)
+		}
 		if len(fields) < 1 || len(fields) > 2 {
 			return nil, fmt.Errorf("%s:%d: want 'cname' or 'cname soname', got %q", path, i+1, text)
 		}

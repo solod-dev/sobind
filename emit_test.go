@@ -74,14 +74,17 @@ func TestBindScope(t *testing.T) {
 
 func TestBindCollision(t *testing.T) {
 	// Check that two C names mapping to one Solod name fail.
-	srcPath := filepath.Join("testdata/src", "collide.h")
+	srcPath := filepath.Join("testdata/src/collide", "collide.h")
 	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}}
 	_, err := Emit([]string{srcPath}, opts)
 	if err == nil {
 		t.Fatal("expected a name collision error")
 	}
-	want := "C names collide; copy these into a -rename file and edit the Solod names apart:" +
-		"\nUV_TIMEOUT  Timeout\nuv_timeout  Timeout"
+	want := `C names collide; copy these into a -rename file and edit the Solod names apart:
+struct stat  Stat
+stat         Stat
+UV_TIMEOUT   Timeout
+uv_timeout   Timeout`
 	if err.Error() != want {
 		t.Errorf("got %q, want %q", err, want)
 	}
@@ -89,11 +92,11 @@ func TestBindCollision(t *testing.T) {
 
 func TestBindRename(t *testing.T) {
 	// A rename file gives distinct Solod names to the two colliding symbols.
-	rename, err := parseRenames(filepath.Join("testdata/src", "collide.rename"))
+	rename, err := parseRenames(filepath.Join("testdata/src/collide", "collide.rename"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	srcPath := filepath.Join("testdata/src", "collide.h")
+	srcPath := filepath.Join("testdata/src/collide", "collide.h")
 	dstPath := filepath.Join("testdata/dst", "collide_rename.go")
 	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}, Rename: rename}
 	compare(t, srcPath, dstPath, opts)
@@ -102,11 +105,11 @@ func TestBindRename(t *testing.T) {
 func TestBindExclude(t *testing.T) {
 	// A rename file with a bare C name drops that symbol, so the pair no
 	// longer collides.
-	rename, err := parseRenames(filepath.Join("testdata/src", "collide_exclude.rename"))
+	rename, err := parseRenames(filepath.Join("testdata/src/collide", "collide_exclude.rename"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	srcPath := filepath.Join("testdata/src", "collide.h")
+	srcPath := filepath.Join("testdata/src/collide", "collide.h")
 	dstPath := filepath.Join("testdata/dst", "collide_exclude.go")
 	opts := Options{Package: "main", Style: styleGo, Strip: []string{"uv_"}, Rename: rename}
 	compare(t, srcPath, dstPath, opts)

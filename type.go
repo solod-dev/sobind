@@ -133,9 +133,7 @@ func (g *generator) mapStructType(st *cc.StructType) string {
 	if name == "" {
 		return ""
 	}
-	// Ensure struct is registered.
-	g.addStruct(name, st)
-	return g.rename.name(name)
+	return g.addStruct(name, st)
 }
 
 func (g *generator) mapUnionType(ut *cc.UnionType) string {
@@ -143,9 +141,7 @@ func (g *generator) mapUnionType(ut *cc.UnionType) string {
 	if name == "" {
 		return ""
 	}
-	// Ensure union is registered.
-	g.addUnion(name, ut)
-	return g.rename.name(name)
+	return g.addUnion(name, ut)
 }
 
 // mapFuncPtrType maps a C function pointer type to a Go function type. Unlike

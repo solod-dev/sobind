@@ -1,2 +1,5 @@
 # Drop the macro, keep the variable of the same name.
 UV_TIMEOUT
+
+# Drop the function, keep the struct tag of the same name.
+stat

@@ -5,8 +5,17 @@ package main
 import "solod.dev/so/c"
 var _ c.Char
 
+//so:extern struct stat
+type StructStat struct {
+	StMode c.Int `c:"st_mode"`
+	StSize c.Long `c:"st_size"`
+}
+
 //so:extern UV_TIMEOUT
 const TimeoutMs = 5000
 
 //so:extern uv_timeout
 var Timeout c.Int
+
+//so:extern stat
+func Stat(path string, buf *StructStat) c.Int

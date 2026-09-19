@@ -60,21 +60,22 @@ func (r *renamer) name(cname string) string {
 	}
 
 	// Transform the C name to a Solod name according to the style.
+	ident := identifier(cname)
 	switch r.style {
 	case styleC:
-		return cname
+		return ident
 	case styleCap:
 		// A removed prefix (after r.cut) can leave a name that starts with
 		// a digit, as in SDL_3DNOW. Such a name keeps the prefix.
-		if name := capitalize(r.cut(cname)); isExported(name) {
+		if name := capitalize(r.cut(ident)); isExported(name) {
 			return name
 		}
-		return capitalize(cname)
+		return capitalize(ident)
 	case styleGo:
-		if name := camel(dropTypeSuffix(r.cut(cname))); isExported(name) {
+		if name := camel(dropTypeSuffix(r.cut(ident))); isExported(name) {
 			return name
 		}
-		return camel(dropTypeSuffix(cname))
+		return camel(dropTypeSuffix(ident))
 	default:
 		panic(fmt.Sprintf("unknown name style %d", r.style))
 	}
@@ -110,6 +111,16 @@ func (r *renamer) cut(cname string) string {
 		if strings.EqualFold(cname[:len(prefix)], prefix) {
 			return cname[len(prefix):]
 		}
+	}
+	return cname
+}
+
+// identifier returns the C identifier a C name carries.
+func identifier(cname string) string {
+	// Only a struct or union with no typedef has more than one word,
+	// and its identifier is the tag: "struct stat" becomes "stat".
+	if _, tag, ok := strings.Cut(cname, " "); ok {
+		return tag
 	}
 	return cname
 }

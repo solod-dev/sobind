@@ -334,33 +334,39 @@ func (g *generator) addVar(name string, t cc.Type) {
 	g.vars[name] = vd
 }
 
-func (g *generator) addStruct(name string, st *cc.StructType) {
-	if _, exists := g.structs[name]; exists {
-		return
+// addStruct registers a struct and returns its Solod name.
+func (g *generator) addStruct(name string, st *cc.StructType) string {
+	if sd, exists := g.structs[name]; exists {
+		return sd.name
 	}
 
 	// Register before resolving fields to break self-referential cycles.
+	cname := externName(name, "struct", st.Typedef())
 	sd := &structDecl{
-		name:  g.rename.name(name),
-		cname: externName(name, "struct", st.Typedef()),
+		name:  g.rename.name(cname),
+		cname: cname,
 		order: g.nextOrder(),
 	}
 	g.structs[name] = sd
 	g.fillStruct(sd, st)
+	return sd.name
 }
 
-func (g *generator) addUnion(name string, ut *cc.UnionType) {
-	if _, exists := g.structs[name]; exists {
-		return
+// addUnion registers a union and returns its Solod name.
+func (g *generator) addUnion(name string, ut *cc.UnionType) string {
+	if sd, exists := g.structs[name]; exists {
+		return sd.name
 	}
 
+	cname := externName(name, "union", ut.Typedef())
 	sd := &structDecl{
-		name:  g.rename.name(name),
-		cname: externName(name, "union", ut.Typedef()),
+		name:  g.rename.name(cname),
+		cname: cname,
 		order: g.nextOrder(),
 	}
 	g.structs[name] = sd
 	g.fillUnion(sd, ut)
+	return sd.name
 }
 
 // addConstStruct registers the const twin of a struct and returns its Solod name.
@@ -374,9 +380,10 @@ func (g *generator) addConstStruct(name string, st *cc.StructType) string {
 	}
 
 	// Register before resolving fields to break self-referential cycles.
+	cname := externName(name, "struct", st.Typedef())
 	sd := &structDecl{
-		name:  g.rename.constName(name),
-		cname: "const " + externName(name, "struct", st.Typedef()),
+		name:  g.rename.constName(cname),
+		cname: "const " + cname,
 		order: g.nextOrder(),
 	}
 	g.structs[key] = sd
@@ -391,9 +398,10 @@ func (g *generator) addConstUnion(name string, ut *cc.UnionType) string {
 		return sd.name
 	}
 
+	cname := externName(name, "union", ut.Typedef())
 	sd := &structDecl{
-		name:  g.rename.constName(name),
-		cname: "const " + externName(name, "union", ut.Typedef()),
+		name:  g.rename.constName(cname),
+		cname: "const " + cname,
 		order: g.nextOrder(),
 	}
 	g.structs[key] = sd
@@ -711,8 +719,11 @@ func (g *generator) walkMacros(macros map[string]*cc.Macro) {
 // then ignores it. The keys of every declaration map are C names.
 func (g *generator) dropExcluded() {
 	for _, cname := range g.rename.excluded() {
-		delete(g.structs, cname)
-		delete(g.structs, constKey(cname))
+		// A struct or union is keyed by its bare name, while the rename file
+		// names it as C does, so match the C name of the declaration instead.
+		maps.DeleteFunc(g.structs, func(_ string, sd *structDecl) bool {
+			return sd.cname == cname || sd.cname == "const "+cname
+		})
 		delete(g.consts, cname)
 		delete(g.funcs, cname)
 		delete(g.vars, cname)

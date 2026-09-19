@@ -1,3 +1,0 @@
-# Give the two colliding symbols distinct Solod names.
-UV_TIMEOUT TimeoutMs
-uv_timeout Timeout
